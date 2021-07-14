@@ -24,7 +24,7 @@ public class CNode
     {
         this.origin = origin;
         this.dest = dest;
-        this.lambda = lambda / Network.dt; // convert trips per hour to trips per timestep
+        this.lambda = lambda * Network.dt; // convert trips per hour to trips per timestep
         
         waiting = new ArrayList<>();
     }

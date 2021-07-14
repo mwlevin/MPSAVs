@@ -14,16 +14,25 @@ import java.util.Set;
  */
 public class Node 
 {
+    public int cost;
+    public Link prev;
+    
     private Set<Link> incoming, outgoing;
     
-    private int id;
+    private int id, type;
     
-    public Node(int id)
+    public Node(int id, int type)
     {
         this.id = id;
+        this.type = type;
         
         incoming = new HashSet<>();
         outgoing = new HashSet<>();
+    }
+    
+    public int getType()
+    {
+        return type;
     }
     
     public Set<Link> getIncoming()
