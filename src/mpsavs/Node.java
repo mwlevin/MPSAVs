@@ -20,16 +20,31 @@ public class Node
     private Set<Link> incoming, outgoing;
     
     private int id, type;
+    private int idx;
+    private static int next_idx = 0;
     
     public Node(int id, int type)
     {
         this.id = id;
         this.type = type;
         
+        if(type != 1000)
+        {
+            idx = next_idx++;
+        }
+        else
+        {
+            idx = -1;
+        }
+        
         incoming = new HashSet<>();
         outgoing = new HashSet<>();
     }
     
+    public int getIdx()
+    {
+        return idx;
+    }
     public int getType()
     {
         return type;

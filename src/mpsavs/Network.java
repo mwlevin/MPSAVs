@@ -24,15 +24,24 @@ public class Network
 {
     public static final int SAV_CAPACITY = 1;
     
+    public static Network active = null;
+    
     private Set<Node> nodes;
     private Set<Link> links;
     private Set<CNode> cnodes;
     
     private Set<SAV> savs;
     
+    private TTMatrix tts;
+    
     
     public static int t;
+    
     public static double dt = 30.0/3600;
+    public static int T_hr = 1;
+    public static int T = (int)Math.round(1.0/dt * T_hr);
+    
+    
     
     public static Random rand = new Random(1000);
     
@@ -40,6 +49,7 @@ public class Network
     
     public Network(String name, double scale, int fleet) throws IOException
     {
+        active = this;
         this.name = name;
         
         
@@ -76,6 +86,8 @@ public class Network
             double length = filein.nextDouble()/5280.0;
             double speed = filein.nextDouble();
             
+            filein.nextLine();
+            
             links.add(new Link(id, nodemap.get(source_id), nodemap.get(dest_id), (int)Math.round(length/speed / dt)));
         }
         filein.close();
@@ -92,6 +104,8 @@ public class Network
             int origin_id = filein.nextInt();
             int dest_id = filein.nextInt();
             double demand = filein.nextDouble() * scale; // trips per hour
+            
+            filein.nextLine();
             
             Node origin = nodemap.get(origin_id);
             Node dest = nodemap.get(dest_id);
@@ -139,6 +153,75 @@ public class Network
             }
         }
         
+        Set<Node> remove = new HashSet<>();
+        Set<Link> removeL = new HashSet<>();
+        
+        for(Node n : nodes)
+        {
+            if(n.getType() == 1000)
+            {
+                remove.add(n);
+            }
+        }
+        
+        for(Link l : links)
+        {
+            if(l.getStart().getType() == 1000 || l.getEnd().getType() == 1000)
+            {
+                removeL.add(l);
+            }
+        }
+        
+        for(Node n : remove)
+        {
+            nodes.remove(n);
+        }
+        
+        for(Link l : removeL)
+        {
+            links.remove(l);
+        }
+        
+        tts = new TTMatrix(this);
+    }
+    
+    public int getTT(Node r, Node s)
+    {
+        return tts.getTT(r, s);
+    }
+    
+    public void simulate()
+    {
+        for(t = 0; t < T; t++)
+        {
+            for(CNode n : cnodes)
+            {
+                n.step();
+            }
+            
+            dispatch();
+            
+            for(SAV v : savs)
+            {
+                v.step();
+            }
+        }
+        
+
+    }
+    
+    public void dispatch()
+    {
+        
+    }
+    public Set<Node> getNodes()
+    {
+        return nodes;
+    }
+    
+    public Set<Link> getLinks()
+    {
+        return links;
     }
     
     public Map<Integer, Node> createNodeIdsMap()

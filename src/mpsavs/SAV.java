@@ -18,6 +18,8 @@ public class SAV
     
     
     private Node location;
+    private int time_to_arrive;
+    
     private Path path;
     
     
@@ -25,5 +27,34 @@ public class SAV
     {
         id = next_id++;
         this.location = loc;
+    }
+    
+    public void step()
+    {
+        if(time_to_arrive > 0)
+        {
+            time_to_arrive--;
+        }
+        else
+        {
+            path = null;
+        }
+    }
+    
+    public boolean isParked()
+    {
+        return time_to_arrive == 0;
+    }
+    
+    public Node getLocation()
+    {
+        return location;
+    }
+    
+    public void dispatch(Path path)
+    {
+        this.path = path;
+        location = path.getDest();
+        time_to_arrive = path.getTT();
     }
 }

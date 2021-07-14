@@ -29,14 +29,30 @@ public class CNode
         waiting = new ArrayList<>();
     }
     
+    public String toString()
+    {
+        return origin.getId()+"-"+dest.getId();
+    }
+    
     public void step()
     {
-        double prob = 1.0/lambda;
+        double prob = lambda;
+        
         
         if(Network.rand.nextDouble() < prob)
         {
             waiting.add(Network.t);
         }
+    }
+    
+    public int getNumWaiting()
+    {
+        return waiting.size();
+    }
+    
+    public double getLambda()
+    {
+        return lambda / Network.dt;
     }
     
     public int getHOLTime()
