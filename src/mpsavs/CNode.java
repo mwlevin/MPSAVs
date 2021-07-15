@@ -6,6 +6,7 @@
 package mpsavs;
 
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 
 /**
@@ -15,6 +16,8 @@ import java.util.List;
 public class CNode 
 {
     private List<Integer> waiting; // stores the time they arrived
+    
+    private RunningAvg waitingTime;
     
     private double lambda;
 
@@ -26,7 +29,28 @@ public class CNode
         this.dest = dest;
         this.lambda = lambda * Network.dt; // convert trips per hour to trips per timestep
         
-        waiting = new ArrayList<>();
+        waiting = new LinkedList<>();
+        
+        waitingTime = new RunningAvg();
+    }
+    
+    public Node getOrigin()
+    {
+        return origin;
+    }
+    
+    public Node getDest()
+    {
+        return dest;
+    }
+    
+    public void pickup(SAV sav, Path path)
+    {
+        int delay = sav.getDelay(path) + path.getPickupDelay(this);
+        
+        waitingTime.add(delay);
+        
+        waiting.remove(0);
     }
     
     public String toString()

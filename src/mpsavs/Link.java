@@ -16,16 +16,23 @@ public class Link
     private Node start, end;
     
     private int tt;
+    private double length;
     
-    public Link(int id, Node start, Node end, int tt)
+    public Link(int id, Node start, Node end, double length, int tt)
     {
         this.id = id;
         this.start = start;
         this.end = end;
         this.tt = tt;
+        this.length = length;
         
         start.addOutgoing(this);
         end.addIncoming(this);
+    }
+    
+    public double getLength()
+    {
+        return length;
     }
     
     public int getTT()

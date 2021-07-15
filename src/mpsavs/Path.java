@@ -26,6 +26,29 @@ public class Path extends ArrayList<Node>
         return served.contains(n);
     }
     
+    public int getPickupDelay(CNode c)
+    {
+        if(!isServed(c))
+        {
+            throw new RuntimeException("c is not served");
+        }
+        
+        for(Node n : this)
+        {
+            if(n == c.getOrigin())
+            {
+                return Network.active.getTT(get(0), n);
+            }
+        }
+        
+        throw new RuntimeException("c is not visited");
+    }
+    
+    public List<CNode> getServed()
+    {
+        return served;
+    }
+    
     public Node getDest()
     {
         return get(size()-1);

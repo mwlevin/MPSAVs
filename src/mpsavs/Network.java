@@ -88,7 +88,8 @@ public class Network
             
             filein.nextLine();
             
-            links.add(new Link(id, nodemap.get(source_id), nodemap.get(dest_id), (int)Math.round(length/speed / dt)));
+            links.add(new Link(id, nodemap.get(source_id), nodemap.get(dest_id), 
+                    length, (int)Math.round(length/speed / dt)));
         }
         filein.close();
         
@@ -213,6 +214,25 @@ public class Network
     public void dispatch()
     {
         
+    }
+    
+    public void dispatchSAV(SAV sav, Path path)
+    {
+        
+        if(!sav.isParked())
+        {
+            throw new RuntimeException("Dispatching moving SAV");
+        }
+        
+        sav.dispatch(path);
+        
+        for(CNode c : path.getServed())
+        {
+            if(c.getNumWaiting() > 0)
+            {
+                c.pickup(sav, path);
+            }
+        }
     }
     public Set<Node> getNodes()
     {

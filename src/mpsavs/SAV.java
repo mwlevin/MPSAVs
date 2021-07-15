@@ -51,10 +51,15 @@ public class SAV
         return location;
     }
     
+    public int getDelay(Path path)
+    {
+        return Network.active.getTT(location, path.getOrigin());
+    }
+    
     public void dispatch(Path path)
     {
         this.path = path;
         location = path.getDest();
-        time_to_arrive = path.getTT();
+        time_to_arrive = path.getTT() + getDelay(path);
     }
 }
