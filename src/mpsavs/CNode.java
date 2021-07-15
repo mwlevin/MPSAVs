@@ -61,6 +61,16 @@ public class CNode
         return origin.getId()+"-"+dest.getId();
     }
     
+    public RunningAvg getDispatchDelay()
+    {
+        return dispatchDelay;
+    }
+    
+    public RunningAvg getPickupDelay()
+    {
+        return pickupDelay;
+    }
+    
     public void step()
     {
         double prob = lambda;

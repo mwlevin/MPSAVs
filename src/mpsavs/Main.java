@@ -20,8 +20,11 @@ public class Main {
     {
         // TODO code application logic here
         
-        Network test = new Network("SiouxFalls", 1.0/1000, 5);
+        Network test = new Network("SiouxFalls", 1.0/1000, 10);
         test.simulate();
+        
+        System.out.println(test.getAvgDispatchDelay());
+        System.out.println(test.getAvgPickupDelay());
     }
     
 }

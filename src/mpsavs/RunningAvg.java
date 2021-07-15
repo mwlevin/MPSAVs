@@ -56,7 +56,10 @@ public class RunningAvg implements Serializable
 	
         public void add(RunningAvg rhs)
         {
-            add(rhs.value/rhs.count, rhs.count);
+            if(rhs.count > 0)
+            {
+                add(rhs.value/rhs.count, rhs.count);
+            }
         }
         /**
          * Returns the total weight

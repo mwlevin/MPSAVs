@@ -398,6 +398,30 @@ public class Network
         return output;
     }
     
+    public double getAvgDispatchDelay()
+    {
+        RunningAvg output = new RunningAvg();
+        
+        for(CNode node : cnodes)
+        {
+            output.add(node.getDispatchDelay());
+        }
+        
+        return output.getAverage();
+    }
+    
+    public double getAvgPickupDelay()
+    {
+        RunningAvg output = new RunningAvg();
+        
+        for(CNode node : cnodes)
+        {
+            output.add(node.getPickupDelay());
+        }
+        
+        return output.getAverage();
+    }
+    
     public void dispatchSAV(SAV sav, Path path)
     {
         
@@ -406,7 +430,8 @@ public class Network
             throw new RuntimeException("Dispatching moving SAV");
         }
         
-        System.out.println("\tDispatch SAV "+sav.getId()+" path "+path);
+        System.out.println("\tDispatch SAV "+sav.getId()+" path "+sav.getLocation()+"-"+path
+            +" :"+sav.getDelay(path)+" "+path.getTT());
         
         sav.dispatch(path);
         
