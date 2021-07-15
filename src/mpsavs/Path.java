@@ -16,6 +16,19 @@ public class Path extends ArrayList<Node>
 {
     private List<CNode> served;
     
+    public Path()
+    {
+        served = new ArrayList<>();
+    }
+    
+    public Path(CNode customer)
+    {
+        this();
+        served.add(customer);
+        add(customer.getOrigin());
+        add(customer.getDest());
+    }
+    
     public Path(List<CNode> served)
     {
         this.served = served;
@@ -44,6 +57,17 @@ public class Path extends ArrayList<Node>
         throw new RuntimeException("c is not visited");
     }
     
+    public double getLength()
+    {
+        double output = 0;
+        
+        for(int i = 0; i < size()-1; i++)
+        {
+            output += Network.active.getLength(get(i), get(i+1));
+        }
+        
+        return output;
+    }
     public List<CNode> getServed()
     {
         return served;

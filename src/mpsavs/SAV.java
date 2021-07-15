@@ -56,6 +56,11 @@ public class SAV
         return Network.active.getTT(location, path.getOrigin());
     }
     
+    public int getId()
+    {
+        return id;
+    }
+    
     public void dispatch(Path path)
     {
         this.path = path;

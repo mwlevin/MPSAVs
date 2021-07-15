@@ -17,7 +17,7 @@ public class CNode
 {
     private List<Integer> waiting; // stores the time they arrived
     
-    private RunningAvg waitingTime;
+    private RunningAvg pickupDelay, dispatchDelay;
     
     private double lambda;
 
@@ -31,7 +31,8 @@ public class CNode
         
         waiting = new LinkedList<>();
         
-        waitingTime = new RunningAvg();
+        pickupDelay = new RunningAvg();
+        dispatchDelay = new RunningAvg();
     }
     
     public Node getOrigin()
@@ -46,11 +47,13 @@ public class CNode
     
     public void pickup(SAV sav, Path path)
     {
-        int delay = sav.getDelay(path) + path.getPickupDelay(this);
+        int waitingForPickup = sav.getDelay(path) + path.getPickupDelay(this);
         
-        waitingTime.add(delay);
+        pickupDelay.add(waitingForPickup);
         
-        waiting.remove(0);
+        int waitingForDispatch = waiting.remove(0);
+        
+        dispatchDelay.add(waitingForDispatch);
     }
     
     public String toString()
@@ -65,6 +68,7 @@ public class CNode
         
         if(Network.rand.nextDouble() < prob)
         {
+            System.out.println("\tNew customer "+this);
             waiting.add(Network.t);
         }
     }

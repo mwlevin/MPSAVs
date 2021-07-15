@@ -16,6 +16,7 @@ public class Node
 {
     public int cost;
     public Link prev;
+    public double length;
     
     private Set<Link> incoming, outgoing;
     

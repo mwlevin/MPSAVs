@@ -20,7 +20,7 @@ public class Main {
     {
         // TODO code application logic here
         
-        Network test = new Network("SiouxFalls", 1, 500);
+        Network test = new Network("SiouxFalls", 1.0/1000, 5);
         test.simulate();
     }
     

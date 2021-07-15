@@ -5,8 +5,14 @@
  */
 package mpsavs;
 
+import ilog.concert.IloException;
+import ilog.concert.IloIntVar;
+import ilog.concert.IloLinearNumExpr;
+import ilog.cplex.IloCplex;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -25,6 +31,8 @@ public class Network
     public static final int SAV_CAPACITY = 1;
     
     public static Network active = null;
+    
+    public double V = 0.1;
     
     private Set<Node> nodes;
     private Set<Link> links;
@@ -47,10 +55,14 @@ public class Network
     
     private String name;
     
+    private PrintStream cplex_log;
+    
     public Network(String name, double scale, int fleet) throws IOException
     {
         active = this;
         this.name = name;
+        
+        cplex_log = new PrintStream(new FileOutputStream(new File("log.txt")), true);
         
         
         nodes = new HashSet<>();
@@ -191,16 +203,32 @@ public class Network
         return tts.getTT(r, s);
     }
     
+    public double getLength(Node r, Node s)
+    {
+        return tts.getLength(r, s);
+    }
+    
     public void simulate()
     {
         for(t = 0; t < T; t++)
         {
+            System.out.println(t);
+            
             for(CNode n : cnodes)
             {
                 n.step();
             }
             
-            dispatch();
+            try
+            {
+                mdpp();
+            }
+            catch(IloException ex)
+            {
+                ex.printStackTrace(System.err);
+                System.exit(0);
+            }
+            
             
             for(SAV v : savs)
             {
@@ -211,9 +239,163 @@ public class Network
 
     }
     
-    public void dispatch()
+  
+    
+    public void mdpp() throws IloException
     {
+        IloCplex cplex = new IloCplex();
         
+        cplex.setOut(cplex_log);
+        
+        List<CNode> nc = getWaiting();
+        List<SAV> nv = getAvailable();
+        
+        if(nc.size() == 0 || nv.size() == 0)
+        {
+            return;
+        }
+        
+        List<Path> paths = new ArrayList<>();
+        
+        for(CNode c : nc)
+        {
+            paths.add(new Path(c));
+        }
+        
+        IloIntVar[][] mat = new IloIntVar[paths.size()][nv.size()];
+        
+        for(int pi = 0; pi < mat.length; pi++)
+        {
+            for(int v = 0; v < mat[pi].length; v++)
+            {
+                mat[pi][v] = cplex.intVar(0, 1);
+            }
+        }
+        
+        // each vehicle assigned at most one path
+        for(int v = 0; v < nv.size(); v++)
+        {
+            IloLinearNumExpr lhs = cplex.linearNumExpr();
+            
+            for(int pi = 0; pi < paths.size(); pi++)
+            {
+                lhs.addTerm(1, mat[pi][v]);
+            }
+            
+            cplex.addLe(lhs, 1);
+        }
+        
+        // each customer assigned at most one vehicle
+        
+        for(CNode c : nc)
+        {
+            IloLinearNumExpr lhs = cplex.linearNumExpr();
+            
+            for(int pi = 0; pi < paths.size(); pi++)
+            {
+                if(paths.get(pi).isServed(c))
+                {
+                    for(int v = 0; v < nv.size(); v++)
+                    {
+                        lhs.addTerm(1, mat[pi][v]);
+                    }
+                }
+            }
+            
+            cplex.addLe(lhs, 1);
+        }
+        
+        // objective
+        IloLinearNumExpr obj = cplex.linearNumExpr();
+        
+        boolean hasObj = false;
+        
+        for(int pi = 0; pi < mat.length; pi++)
+        {
+            double total_h = 0;
+            
+            Path path = paths.get(pi);
+            
+            for(CNode c : cnodes)
+            {
+                if(path.isServed(c))
+                {
+                    total_h += c.getHOLTime();
+                }
+            }
+            
+            for(int v = 0; v < mat[pi].length; v++)
+            {
+                double VD = V * (path.getTT()+nv.get(v).getDelay(path));
+                
+                if(VD > total_h)
+                {
+                    cplex.addEq(mat[pi][v], 0);
+                }
+                else
+                {
+                    obj.addTerm(VD-total_h, mat[pi][v]);
+                    
+                    hasObj = true;
+                }
+                
+                
+            }
+        }
+        
+        
+        
+        cplex.addMinimize(obj);
+        
+        if(hasObj)
+        {
+            cplex.setParam(IloCplex.Param.TimeLimit, 60*5);
+            cplex.solve();
+            
+            System.out.println("\tSolved cplex");
+
+            for(int pi = 0; pi < mat.length; pi++)
+            {
+                for(int v = 0; v < mat[pi].length; v++)
+                {
+                    if(cplex.getValue(mat[pi][v]) == 1)
+                    {
+                        dispatchSAV(nv.get(v), paths.get(pi));
+                    }
+                }
+            }
+            
+        }
+    }
+    
+    public List<CNode> getWaiting()
+    {
+        List<CNode> output = new ArrayList<>();
+        
+        for(CNode n : cnodes)
+        {
+            if(n.getNumWaiting() > 0)
+            {
+                output.add(n);
+            }
+        }
+        
+        return output;
+    }
+    
+    public List<SAV> getAvailable()
+    {
+        List<SAV> output = new ArrayList<>();
+        
+        for(SAV v : savs)
+        {
+            if(v.isParked())
+            {
+                output.add(v);
+            }
+        }
+        
+        return output;
     }
     
     public void dispatchSAV(SAV sav, Path path)
@@ -223,6 +405,8 @@ public class Network
         {
             throw new RuntimeException("Dispatching moving SAV");
         }
+        
+        System.out.println("\tDispatch SAV "+sav.getId()+" path "+path);
         
         sav.dispatch(path);
         
@@ -261,10 +445,12 @@ public class Network
         for(Node n : nodes)
         {
             n.cost = Integer.MAX_VALUE;
+            n.length = Integer.MAX_VALUE;
             n.prev = null;
         }
         
         source.cost = 0;
+        source.length = 0;
         
         Set<Node> Q = new HashSet<Node>();
         Q.add(source);
@@ -293,6 +479,7 @@ public class Network
                 if(u.cost + tt < v.cost)
                 {
                     v.cost = u.cost + tt;
+                    v.length = u.length + uv.getLength();
                     v.prev = uv;
                     Q.add(v);
                 }

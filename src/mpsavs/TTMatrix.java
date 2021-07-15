@@ -14,12 +14,14 @@ import java.util.Set;
 public class TTMatrix 
 {
     private int[][] mat;
+    private double[][] length;
     
     public TTMatrix(Network network)
     {
         Set<Node> nodes = network.getNodes();
         
         mat = new int[nodes.size()][nodes.size()];
+        length = new double[nodes.size()][nodes.size()];
         
         for(Node r : nodes)
         {
@@ -28,10 +30,20 @@ public class TTMatrix
             for(Node s : nodes)
             {
                 mat[r.getIdx()][s.getIdx()] = s.cost;
+                length[r.getIdx()][s.getIdx()] = s.length;
             }
         }
     }
     
+    public double getLength(Node r, Node s)
+    {
+        if(r.getType() == 1000 || s.getType() == 1000)
+        {
+            throw new RuntimeException("using centroid node");
+        }
+        
+        return length[r.getIdx()][s.getIdx()];
+    }
     public int getTT(Node r, Node s)
     {
         if(r.getType() == 1000 || s.getType() == 1000)
