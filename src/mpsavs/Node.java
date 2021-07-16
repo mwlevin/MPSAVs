@@ -5,7 +5,9 @@
  */
 package mpsavs;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -24,10 +26,14 @@ public class Node
     private int idx;
     private static int next_idx = 0;
     
+    private Set<CNode> cnodes;
+    
     public Node(int id, int type)
     {
         this.id = id;
         this.type = type;
+        
+        cnodes = new HashSet<>();
         
         if(type != 1000)
         {
@@ -40,6 +46,17 @@ public class Node
         
         incoming = new HashSet<>();
         outgoing = new HashSet<>();
+    }
+    
+    
+    public void addCNode(CNode c)
+    {
+        cnodes.add(c);
+    }
+    
+    public Set<CNode> getCNodes()
+    {
+        return cnodes;
     }
     
     public int getIdx()

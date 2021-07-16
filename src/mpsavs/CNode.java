@@ -33,6 +33,8 @@ public class CNode
         
         pickupDelay = new RunningAvg();
         dispatchDelay = new RunningAvg();
+        
+        origin.addCNode(this);
     }
     
     public Node getOrigin()
@@ -78,8 +80,9 @@ public class CNode
         
         if(Network.rand.nextDouble() < prob)
         {
-            System.out.println("\tNew customer "+this);
+            Network.active.total_customers++;
             waiting.add(Network.t);
+            System.out.println("\tNew customer "+this+" "+waiting.size());
         }
     }
     

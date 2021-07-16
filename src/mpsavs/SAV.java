@@ -64,8 +64,9 @@ public class SAV
     public void dispatch(Path path)
     {
         this.path = path;
-        time_to_arrive = path.getTT() + getDelay(path);
+        time_to_arrive = path.getTT() + getDelay(path)-1;
         
+        Network.active.emptyTT += getDelay(path);
         location = path.getDest();
         
  

@@ -5,6 +5,7 @@
  */
 package mpsavs;
 
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -18,7 +19,7 @@ public class TTMatrix
     
     public TTMatrix(Network network)
     {
-        Set<Node> nodes = network.getNodes();
+        List<Node> nodes = network.getNodes();
         
         mat = new int[nodes.size()][nodes.size()];
         length = new double[nodes.size()][nodes.size()];

@@ -8,6 +8,7 @@ package mpsavs;
 import ilog.concert.IloException;
 import ilog.concert.IloIntVar;
 import ilog.concert.IloLinearNumExpr;
+import ilog.concert.IloNumVar;
 import ilog.cplex.IloCplex;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -28,13 +29,15 @@ import java.util.Set;
  */
 public class Network 
 {
+    public int total_customers;
+    
     public static final int SAV_CAPACITY = 1;
     
     public static Network active = null;
     
-    public double V = 0.1;
+    public double V = 10;
     
-    private Set<Node> nodes;
+    private List<Node> nodes;
     private Set<Link> links;
     private Set<CNode> cnodes;
     
@@ -46,13 +49,14 @@ public class Network
     public static int t;
     
     public static double dt = 30.0/3600;
-    public static int T_hr = 1;
+    public static int T_hr = 30;
     public static int T = (int)Math.round(1.0/dt * T_hr);
     
     
     
     public static Random rand = new Random(1000);
     
+    private double total_demand;
     private String name;
     
     private PrintStream cplex_log;
@@ -65,7 +69,7 @@ public class Network
         cplex_log = new PrintStream(new FileOutputStream(new File("log.txt")), true);
         
         
-        nodes = new HashSet<>();
+        nodes = new ArrayList<>();
         links = new HashSet<>();
         cnodes = new HashSet<>();
         savs =  new HashSet<>();
@@ -105,7 +109,7 @@ public class Network
         }
         filein.close();
         
-        double total = 0;
+        total_demand = 0;
         
         filein = new Scanner(new File("data/"+name+"/demand/static_od.txt"));
         filein.nextLine();
@@ -135,11 +139,11 @@ public class Network
             
             cnodes.add(new CNode(origin, dest, demand));
             
-            total += demand;
+            total_demand += demand;
         }
         filein.close();
         
-        System.out.println("Total demand: "+total);
+        System.out.println("Total demand: "+total_demand);
         
         
         List<Node> savnodes = new ArrayList<Node>();
@@ -208,11 +212,18 @@ public class Network
         return tts.getLength(r, s);
     }
     
-    public void simulate()
+    public void simulate() throws IOException
     {
+        total_customers = 0;
+        
+        PrintStream output = new PrintStream(new FileOutputStream(new File("waiting.txt")), true);
+        output.println("time\tnum waiting\tHOL time");
+        
         for(t = 0; t < T; t++)
         {
             System.out.println(t);
+            
+            output.println(t+"\t"+getNumWaiting()+"\t"+getHOLTime());
             
             for(CNode n : cnodes)
             {
@@ -236,9 +247,154 @@ public class Network
             }
         }
         
-
+        output.close();
     }
     
+    
+    public double stableRegionMaxServed() throws IloException
+    {
+        IloCplex cplex = new IloCplex();
+        
+        IloNumVar alpha = cplex.numVar(0, 1000);
+        
+        
+        IloNumVar[][][] v = new IloNumVar[nodes.size()][nodes.size()][nodes.size()];
+        
+        
+            
+        for(int r_idx = 0; r_idx < nodes.size(); r_idx++)
+        {
+            for(int s_idx = 0; s_idx < nodes.size(); s_idx++)
+            {
+                Node r = nodes.get(r_idx);
+                Node s = nodes.get(s_idx);
+
+                boolean used = false;
+                for(CNode c : r.getCNodes())
+                {
+                    if(c.getDest() == s)
+                    {
+                        used = true;
+                        break;
+                    }
+                }
+                    
+                if(used)
+                {
+                    for(int q_idx = 0; q_idx < nodes.size(); q_idx++)
+                    {
+                    
+                        v[q_idx][r_idx][s_idx] = cplex.numVar(0, Integer.MAX_VALUE);
+                    }
+                }
+            }
+        }
+        
+        // demand constraint
+        for(CNode c : cnodes)
+        {
+            IloLinearNumExpr lhs = cplex.linearNumExpr();
+            
+            for(int q = 0; q < v.length; q++)
+            {
+                lhs.addTerm(1, v[q][c.getOrigin().getIdx()][c.getDest().getIdx()]);
+            }
+            
+            cplex.addGe(lhs, cplex.prod(c.getLambda(), alpha));
+        }
+        
+        // travel time constraint
+        IloLinearNumExpr lhs = cplex.linearNumExpr();
+        for(int q_idx = 0; q_idx < nodes.size(); q_idx++)
+        {
+            for(int r_idx = 0; r_idx < nodes.size(); r_idx++)
+            {
+                for(int s_idx = 0; s_idx < nodes.size(); s_idx++)
+                {
+                    if(v[q_idx][r_idx][s_idx] != null)
+                    {
+                        Node q = nodes.get(q_idx);
+                        Node r = nodes.get(r_idx);
+                        Node s = nodes.get(s_idx);
+                        
+                        lhs.addTerm(v[q_idx][r_idx][s_idx], (getTT(q, r)+getTT(r, s))*dt);
+                        
+                        //System.out.println((getTT(q, r)+getTT(r, s))*dt);
+                    }
+                }
+            }
+        }
+        
+        cplex.addLe(lhs, savs.size());
+        
+        for(int s = 0; s < nodes.size(); s++)
+        {
+            lhs = cplex.linearNumExpr();
+            IloLinearNumExpr rhs = cplex.linearNumExpr();
+            
+            for(int q = 0; q < nodes.size(); q++)
+            {
+                for(int r = 0; r < nodes.size(); r++)
+                {
+                    if(v[q][r][s] != null)
+                    {
+                        lhs.addTerm(1, v[q][r][s]);
+                    }
+                    
+                    if(v[s][r][q] != null)
+                    {
+                        rhs.addTerm(1, v[s][r][q]);
+                    }
+                }
+            }
+            
+            cplex.addEq(lhs, rhs);
+        }
+        
+        
+        
+        
+        
+        cplex.addMaximize(alpha);
+        
+        cplex.solve();
+        
+        double alpha_ = cplex.getValue(alpha);
+        
+        double emptyTime = 0;
+        
+        for(int q_idx = 0; q_idx < nodes.size(); q_idx++)
+        {
+            for(int r_idx = 0; r_idx < nodes.size(); r_idx++)
+            {
+                for(int s_idx = 0; s_idx < nodes.size(); s_idx++)
+                {
+                    if(v[q_idx][r_idx][s_idx] != null)
+                    {
+                        Node q = nodes.get(q_idx);
+                        Node r = nodes.get(r_idx);
+                        Node s = nodes.get(s_idx);
+                        
+                        emptyTime += cplex.getValue(v[q_idx][r_idx][s_idx]) * getTT(q, r);
+                        
+                    }
+                }
+            }
+        }
+        
+        System.out.println("predicted empty time: "+emptyTime * dt);
+        
+        double output = 0;
+        
+        for(CNode n : cnodes)
+        {
+            output += n.getLambda() * alpha_;
+        }
+        
+        
+        
+        return output;
+    }
   
     
     public void mdpp() throws IloException
@@ -366,8 +522,32 @@ public class Network
             }
             
         }
+        
+        cplex.end();
     }
     
+    public int getHOLTime()
+    {
+        int output = 0;
+        
+        for(CNode n : cnodes)
+        {
+            output += n.getHOLTime();
+        }
+        
+        return output;
+    }
+    public int getNumWaiting()
+    {
+        int output = 0;
+        
+        for(CNode n : cnodes)
+        {
+            output += n.getNumWaiting();
+        }
+        
+        return output;
+    }
     public List<CNode> getWaiting()
     {
         List<CNode> output = new ArrayList<>();
@@ -443,7 +623,7 @@ public class Network
             }
         }
     }
-    public Set<Node> getNodes()
+    public List<Node> getNodes()
     {
         return nodes;
     }
@@ -452,6 +632,13 @@ public class Network
     {
         return links;
     }
+    
+    public double getTotalDemand()
+    {
+        return total_demand;
+    }
+    
+    public double emptyTT;
     
     public Map<Integer, Node> createNodeIdsMap()
     {
