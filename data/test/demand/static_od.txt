@@ -1,0 +1,5 @@
+id	type	origin	destination	demand
+1	121	1	2	1
+2	121	2	1	1
+
+
