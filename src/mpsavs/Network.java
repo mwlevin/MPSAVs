@@ -35,11 +35,14 @@ public class Network
     
     public static Network active = null;
     
-    public double V = 10;
+    public static boolean EVs = true;
+    
+    public double V = 0.1;
     
     private List<Node> nodes;
     private Set<Link> links;
     private Set<CNode> cnodes;
+    private List<Node> enodes;
     
     private Set<SAV> savs;
     
@@ -49,7 +52,7 @@ public class Network
     public static int t;
     
     public static double dt = 30.0/3600;
-    public static int T_hr = 30;
+    public static int T_hr = 2;
     public static int T = (int)Math.round(1.0/dt * T_hr);
     
     
@@ -73,6 +76,7 @@ public class Network
         links = new HashSet<>();
         cnodes = new HashSet<>();
         savs =  new HashSet<>();
+        enodes = new ArrayList<>();
         
         Scanner filein = new Scanner(new File("data/"+name+"/network/nodes.txt"));
         filein.nextLine();
@@ -82,9 +86,15 @@ public class Network
             int id = filein.nextInt();
             int type = filein.nextInt();
             
-            nodes.add(new Node(id, type));
+            Node temp = new Node(id, type);
+            nodes.add(temp);
             
             filein.nextLine();
+            
+            if(type == 200)
+            {
+                enodes.add(temp);
+            }
         }
         filein.close();
         
@@ -160,7 +170,18 @@ public class Network
         
         for(int f = 0; f < fleet; f++)
         {
-            savs.add(new SAV(savnodes.get(idx)));
+            SAV temp;
+            
+            if(EVs)
+            {
+                temp = new SAEV(savnodes.get(idx));
+            }
+            else
+            {
+                temp = new SAV(savnodes.get(idx));
+            }
+            
+            savs.add(temp);
             
             idx++;
             
@@ -251,7 +272,25 @@ public class Network
     }
     
     
+    public List<Node> getENodes()
+    {
+        return enodes;
+    }
+    
+    
     public double stableRegionMaxServed() throws IloException
+    {
+        if(EVs)
+        {
+            return stableRegionMaxServedEV();
+        }
+        else
+        {
+            return stableRegionMaxServed1();
+        }
+    }
+    
+    public double stableRegionMaxServed1() throws IloException
     {
         IloCplex cplex = new IloCplex();
         
@@ -396,6 +435,268 @@ public class Network
         return output;
     }
   
+    public double stableRegionMaxServedEV() throws IloException
+    {
+        IloCplex cplex = new IloCplex();
+        
+        IloNumVar alpha = cplex.numVar(0, 1000);
+        
+        int b_db = 2;
+        
+        IloNumVar[][][][] v = new IloNumVar[nodes.size()][nodes.size()][nodes.size()][b_db];
+        
+        
+            
+        for(int r_idx = 0; r_idx < nodes.size(); r_idx++)
+        {
+            for(int s_idx = 0; s_idx < nodes.size(); s_idx++)
+            {
+                Node r = nodes.get(r_idx);
+                Node s = nodes.get(s_idx);
+
+                boolean used = false;
+                for(CNode c : r.getCNodes())
+                {
+                    if(c.getDest() == s)
+                    {
+                        used = true;
+                        break;
+                    }
+                }
+                    
+                if(used)
+                {
+                    for(int q_idx = 0; q_idx < nodes.size(); q_idx++)
+                    {
+                        for(int b = 0; b < b_db; b++)
+                        {
+                            v[q_idx][r_idx][s_idx][b] = cplex.numVar(0, Integer.MAX_VALUE);
+                        }
+                    }
+                }
+            }
+        }
+        
+        // demand constraint
+        for(CNode c : cnodes)
+        {
+            IloLinearNumExpr lhs = cplex.linearNumExpr();
+            
+            for(int q = 0; q < v.length; q++)
+            {
+                for(int b = 0; b < b_db; b++)
+                {
+                    //if(v[q][c.getOrigin().getIdx()][c.getDest().getIdx()][b] != null)
+                    {
+                        lhs.addTerm(1, v[q][c.getOrigin().getIdx()][c.getDest().getIdx()][b]);
+                    }
+                }
+            }
+            
+            cplex.addGe(lhs, cplex.prod(c.getLambda(), alpha));
+        }
+        
+        // travel time constraint
+        IloLinearNumExpr lhs = cplex.linearNumExpr();
+        for(int q_idx = 0; q_idx < nodes.size(); q_idx++)
+        {
+            for(int r_idx = 0; r_idx < nodes.size(); r_idx++)
+            {
+                for(int s_idx = 0; s_idx < nodes.size(); s_idx++)
+                {
+
+                    for(int b = 0; b < b_db; b++)
+                    {
+                        if(v[q_idx][r_idx][s_idx][b] != null)
+                        {
+                            Node q = nodes.get(q_idx);
+                            Node r = nodes.get(r_idx);
+                            Node s = nodes.get(s_idx);
+                            double tt = 0;
+                            
+                            tt += getTT(r, s)*dt;
+                            
+                            double consumed = getLength(q, r) + getLength(r, s);
+                            
+                            double required = getLength(s, SAEV.getNearestCharger(s));
+                            
+                            double start_battery = (double)(b+1)/b_db * SAEV.max_battery;
+                            
+                            if(start_battery - consumed < required)
+                            {
+                                Node closestCharger = SAEV.getBestCharger(q, r);
+                                
+                                double projected = start_battery - getLength(q, closestCharger);
+                                double rechargeTime = (SAEV.max_battery - projected)/SAEV.charge_rate;
+                                
+                                tt += rechargeTime;
+                                
+                                //System.out.println("recharge "+rechargeTime+" "+projected);
+                                
+                                tt += getTT(q, closestCharger)*dt;
+                                tt += getTT(closestCharger, r)*dt;
+                            }
+                            else
+                            {
+                                 tt += getTT(q, r)*dt;
+                            }
+                            
+                            // (getTT(q, r)+getTT(r, s))*dt
+                            
+                            lhs.addTerm(v[q_idx][r_idx][s_idx][b], tt);
+                        }
+                        
+                        //System.out.println((getTT(q, r)+getTT(r, s))*dt);
+                    }
+                }
+            }
+        }
+        
+        cplex.addLe(lhs, savs.size());
+        
+        for(int s_idx = 0; s_idx < nodes.size(); s_idx++)
+        {
+            for(int b = 0; b < b_db; b++) // b is the starting level of RHS and end level of LHS
+            {
+                lhs = cplex.linearNumExpr();
+                IloLinearNumExpr rhs = cplex.linearNumExpr();
+
+                for(int q_idx = 0; q_idx < nodes.size(); q_idx++)
+                {
+                    for(int r_idx = 0; r_idx < nodes.size(); r_idx++)
+                    {
+                    
+                        
+                        Node q = nodes.get(q_idx);
+                        Node r = nodes.get(r_idx);
+                        Node s = nodes.get(s_idx);
+                        //lhs.addTerm(1, v[q][r][s]);
+
+                        for(int bp = 0; bp < b_db; bp++)
+                        {
+                            if(v[q_idx][r_idx][s_idx][bp] != null)
+                            {
+                                // check if v_qrs at bp ends with b battery
+                                double end_battery = 0;
+                                double start_battery = (double)(bp+1)/b_db * SAEV.max_battery;
+                                
+                                double consumed = getLength(q, r) + getLength(r, s);
+                            
+                                double required = getLength(s, SAEV.getNearestCharger(s));
+                                boolean recharge = false;
+                                
+                                if(start_battery - consumed < required)
+                                {
+                                    Node closestCharger = SAEV.getBestCharger(q, r);
+                                    recharge = true;
+
+                                    end_battery = SAEV.max_battery - getLength(closestCharger, r) - getLength(r, s);
+                                }
+                                else
+                                {
+                                    end_battery = start_battery - consumed;
+                                }
+                                
+                                int end_b = (int)Math.max(0, Math.round(end_battery/SAEV.max_battery * b_db)-1);
+                                
+                                /*
+                                System.out.println(q+" "+r+" "+s+" : "+bp+" - "+end_b+" "+recharge+" "+
+                                    start_battery+" "+end_battery);
+                                */
+                                
+                                if(end_b == b)
+                                {
+                                    lhs.addTerm(1.0, v[q_idx][r_idx][s_idx][bp]);
+                                }
+                            }
+                        }
+
+                        if(v[s_idx][r_idx][q_idx][b] != null)
+                        {
+                            rhs.addTerm(1, v[s_idx][r_idx][q_idx][b]);
+                        }
+                    }
+                }
+                
+                cplex.addEq(lhs, rhs);
+            }
+            
+            
+        }
+        
+        
+        
+        
+        
+        cplex.addMaximize(alpha);
+        
+        cplex.solve();
+        
+        double alpha_ = cplex.getValue(alpha);
+        
+        double emptyTime = 0;
+        
+        for(int q_idx = 0; q_idx < nodes.size(); q_idx++)
+        {
+            for(int r_idx = 0; r_idx < nodes.size(); r_idx++)
+            {
+                for(int s_idx = 0; s_idx < nodes.size(); s_idx++)
+                {
+                    
+                    Node q = nodes.get(q_idx);
+                    Node r = nodes.get(r_idx);
+                    Node s = nodes.get(s_idx);
+                        
+                    for(int b = 0; b < b_db; b++)
+                    {
+                        if(v[q_idx][r_idx][s_idx][b] != null)
+                        {
+                            double consumed = getLength(q, r) + getLength(r, s);
+                            
+                            double required = getLength(s, SAEV.getNearestCharger(s));
+                            
+                            int tt = 0;
+                            
+                            if((double)(b+1)/b_db * SAEV.max_battery - consumed < required)
+                            {
+                                Node closestCharger = SAEV.getBestCharger(q, r);
+                                
+                                double projected = (double)b/b_db * SAEV.max_battery - getLength(q, closestCharger);
+                                int rechargeTime = (int)Math.ceil( (SAEV.max_battery - projected)/SAEV.charge_rate / dt);
+                                
+                                tt += rechargeTime;
+                                
+                                tt += getTT(q, closestCharger);
+                                tt += getTT(closestCharger, r);
+                            }
+                            else
+                            {
+                                 tt += getTT(q, r);
+                            }
+                            
+                            emptyTime += cplex.getValue(v[q_idx][r_idx][s_idx][b]) * tt;
+                            
+                            //System.out.println(q+" "+r+" "+s+" : "+b+" - "+ cplex.getValue(v[q_idx][r_idx][s_idx][b]));
+                        }
+                        
+                    }
+                }
+            }
+        }
+        
+        System.out.println("predicted empty time: "+emptyTime * dt);
+        
+        double output = 0;
+        
+        for(CNode n : cnodes)
+        {
+            output += n.getLambda() * alpha_;
+        }
+        
+        
+        
+        return output;
+    }
     
     public void mdpp() throws IloException
     {
@@ -483,6 +784,8 @@ public class Network
             for(int v = 0; v < mat[pi].length; v++)
             {
                 double VD = V * (path.getTT()+nv.get(v).getDelay(path));
+                
+                //System.out.println("delay : "+nv.get(v).getDelay(path)+" "+path.getTT());
                 
                 if(VD > total_h)
                 {

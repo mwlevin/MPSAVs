@@ -25,19 +25,19 @@ public class Main {
     {
         // TODO code application logic here
         
-        Network test = new Network("SiouxFalls", 45.0/28835, 10);
-        
-        
+        Network test = new Network("SiouxFalls", 4.0/28835, 1);
+        //Network test = new Network("test", 1, 1);
+        /*
         test.simulate();
         
         System.out.println(test.getAvgDispatchDelay());
         System.out.println(test.getAvgPickupDelay());
-        
+        */
         
         System.out.println(test.stableRegionMaxServed()+" "+test.getTotalDemand());
-        System.out.println("actual empty time: "+test.emptyTT / test.T_hr * test.dt);
+        //System.out.println("actual empty time: "+test.emptyTT / test.T_hr * test.dt);
         
-        System.out.println(test.total_customers);
+        //System.out.println(test.total_customers);
     }
     
 }
