@@ -82,7 +82,11 @@ public class CNode
         {
             Network.active.total_customers++;
             waiting.add(Network.t);
-            System.out.println("\tNew customer "+this+" "+waiting.size());
+            
+            if(Network.PRINT)
+            {
+                System.out.println("\tNew customer "+this+" "+waiting.size());
+            }
         }
     }
     

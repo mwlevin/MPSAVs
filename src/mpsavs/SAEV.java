@@ -22,7 +22,7 @@ public class SAEV extends SAV
         super(loc);
         
         
-        battery = max_battery;
+        battery = (Network.rand.nextDouble()/2 + 0.5)*max_battery;
     }
     
     public int getDelay(Path path)
@@ -69,7 +69,11 @@ public class SAEV extends SAV
         {
             Node closestCharger = getBestCharger(getLocation(), path.getOrigin());
             
-            System.out.println("\tCharging at node "+closestCharger);
+            if(Network.PRINT)
+            {
+                System.out.println("\tCharging at node "+closestCharger);
+            }
+            
             //System.out.println("\tTT to charger: "+Network.active.getTT(getLocation(), closestCharger));
             
             double projectedBattery = battery - Network.active.getLength(getLocation(), closestCharger);

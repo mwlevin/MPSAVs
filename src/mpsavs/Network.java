@@ -29,15 +29,17 @@ import java.util.Set;
  */
 public class Network 
 {
+    public static final boolean PRINT = false;
+    
     public int total_customers;
     
     public static final int SAV_CAPACITY = 1;
     
     public static Network active = null;
     
-    public static boolean EVs = true;
+    public static boolean EVs = false;
     
-    public double V = 0.1;
+    public double V = 0.01;
     
     private List<Node> nodes;
     private Set<Link> links;
@@ -52,10 +54,10 @@ public class Network
     public static int t;
     
     public static double dt = 30.0/3600;
-    public static int T_hr = 2;
+    public static int T_hr = 12;
     public static int T = (int)Math.round(1.0/dt * T_hr);
     
-    
+    private int[] holtimes;
     
     public static Random rand = new Random(1000);
     
@@ -80,6 +82,8 @@ public class Network
         
         Scanner filein = new Scanner(new File("data/"+name+"/network/nodes.txt"));
         filein.nextLine();
+        
+        Node.next_idx = 0;
         
         while(filein.hasNextInt())
         {
@@ -153,8 +157,10 @@ public class Network
         }
         filein.close();
         
-        System.out.println("Total demand: "+total_demand);
-        
+        if(PRINT)
+        {   
+            System.out.println("Total demand: "+total_demand);
+        }
         
         List<Node> savnodes = new ArrayList<Node>();
         
@@ -235,6 +241,8 @@ public class Network
     
     public void simulate() throws IOException
     {
+        holtimes = new int[T];
+        
         total_customers = 0;
         
         PrintStream output = new PrintStream(new FileOutputStream(new File("waiting.txt")), true);
@@ -242,9 +250,15 @@ public class Network
         
         for(t = 0; t < T; t++)
         {
-            System.out.println(t);
+            if(PRINT)
+            {
+                System.out.println(t);
+            }
             
-            output.println(t+"\t"+getNumWaiting()+"\t"+getHOLTime());
+            int holtime = getHOLTime();
+            holtimes[t] = holtime;
+            
+            output.println(t+"\t"+getNumWaiting()+"\t"+holtime);
             
             for(CNode n : cnodes)
             {
@@ -269,6 +283,11 @@ public class Network
         }
         
         output.close();
+    }
+    
+    public int[] getHOLTimes()
+    {
+        return holtimes;
     }
     
     
@@ -698,11 +717,19 @@ public class Network
         return output;
     }
     
+    private IloCplex cplex;
     public void mdpp() throws IloException
     {
-        IloCplex cplex = new IloCplex();
+        if(cplex == null)
+        {
+            cplex = new IloCplex();
         
-        cplex.setOut(cplex_log);
+            cplex.setOut(cplex_log);
+        }
+        else
+        {
+            cplex.clearModel();
+        }
         
         List<CNode> nc = getWaiting();
         List<SAV> nv = getAvailable();
@@ -811,7 +838,10 @@ public class Network
             cplex.setParam(IloCplex.Param.TimeLimit, 60*5);
             cplex.solve();
             
-            System.out.println("\tSolved cplex");
+            if(Network.PRINT)
+            {
+                System.out.println("\tSolved cplex");
+            }
 
             for(int pi = 0; pi < mat.length; pi++)
             {
@@ -826,7 +856,8 @@ public class Network
             
         }
         
-        cplex.end();
+        //cplex.end();
+        cplex_log.flush();
     }
     
     public int getHOLTime()
@@ -913,8 +944,12 @@ public class Network
             throw new RuntimeException("Dispatching moving SAV");
         }
         
-        System.out.println("\tDispatch SAV "+sav.getId()+" path "+sav.getLocation()+"-"+path
-            +" :"+sav.getDelay(path)+" "+path.getTT());
+        if(PRINT)
+        {
+            System.out.println("\tDispatch SAV "+sav.getId()+" path "+sav.getLocation()+"-"+path
+                +" :"+sav.getDelay(path)+" "+path.getTT());
+        }
+        
         
         sav.dispatch(path);
         

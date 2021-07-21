@@ -24,7 +24,7 @@ public class Node
     
     private int id, type;
     private int idx;
-    private static int next_idx = 0;
+    public static int next_idx = 0;
     
     private Set<CNode> cnodes;
     
