@@ -19,10 +19,12 @@ public class MetaSimulation
     private int fleetsize;
     private String name;
     
+    
     public MetaSimulation(String name,  int fleetsize)
     {
         this.name = name;
         this.fleetsize = fleetsize;
+        
     }
     
     public double lineSearch() throws IOException
@@ -33,11 +35,13 @@ public class MetaSimulation
         double mid = 0;
         double diff = 0.2;
         
+        
+        
         while(top - bot > diff)
         {
             mid = (bot+top)/2;
             
-            System.out.println(bot+" "+top+" "+mid);
+            //System.out.println(bot+" "+top+" "+mid);
             
             if(isStableMC(mid))
             {
@@ -51,11 +55,12 @@ public class MetaSimulation
             
         }
         
-        mid = (bot+top)/2;
+        //mid = (bot+top)/2;
         
-        return mid;
+        return total_demand;
     }
     
+
     public boolean isStableMC(double scale) throws IOException
     {
         int count = 0;
@@ -76,20 +81,45 @@ public class MetaSimulation
     }
     
     
+    private double total_demand;
+    
     public boolean isStable(double scale) throws IOException
     {
+        
         Network network = new Network(name, scale, fleetsize);
+        
+        total_demand = network.getTotalDemand();
         
         network.simulate();
         
         int[] hol = network.getHOLTimes();
+        
+        
         double[] stableCheck = getStableDefi(hol);
+        
+        //System.out.println(stableCheck[stableCheck.length-1]);
         double[] filtered = getLowPassFilter(stableCheck);
         
-        double diff = (filtered[filtered.length-1] - filtered[filtered.length-1-240])/240;
-        //System.out.println(diff);
+        double[] diff = new double[8];
         
-        return diff < 0.001;
+        int count = 0;
+        
+        for(int i = 0; i < diff.length; i++)
+        {
+            diff[i] = (filtered[filtered.length-1] - filtered[filtered.length-1-(i+1)*60])/( (i+1)*60) 
+                    / network.getTotalDemand() / Network.dt;
+  
+            System.out.println("diff "+((i+1)*60)+" = "+diff[i]);
+            
+            if(diff[i] < 0.2)
+            {
+                count++;
+            }
+        }
+        
+        
+        
+        return diff[diff.length-1] < 0.2 || count >= diff.length/2;
     }
     
     public double[] getLowPassFilter(double[] avg)

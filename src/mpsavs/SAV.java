@@ -66,7 +66,7 @@ public class SAV
         this.path = path;
         time_to_arrive = path.getTT() + getDelay(path)-1;
         
-        Network.active.emptyTT += getDelay(path);
+        
         location = path.getDest();
         
  

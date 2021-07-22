@@ -39,8 +39,9 @@ public class Network
     
     public static boolean EVs = false;
     
-    public double V = 0.01;
+    public double V = 1;
     
+    private RunningAvg avgC;
     private List<Node> nodes;
     private Set<Link> links;
     private Set<CNode> cnodes;
@@ -54,12 +55,12 @@ public class Network
     public static int t;
     
     public static double dt = 30.0/3600;
-    public static int T_hr = 12;
+    public static int T_hr = 24;
     public static int T = (int)Math.round(1.0/dt * T_hr);
     
     private int[] holtimes;
     
-    public static Random rand = new Random(1000);
+    public static Random rand = new Random(13);
     
     private double total_demand;
     private String name;
@@ -243,6 +244,8 @@ public class Network
     {
         holtimes = new int[T];
         
+        avgC = new RunningAvg();
+        
         total_customers = 0;
         
         PrintStream output = new PrintStream(new FileOutputStream(new File("waiting.txt")), true);
@@ -282,6 +285,10 @@ public class Network
             }
         }
         
+        System.out.println("Total customers: "+total_customers
+                +" "+((double)total_customers/T_hr)+" "+total_demand);
+        System.out.println("Avg service time: "+avgC);
+        
         output.close();
     }
     
@@ -311,7 +318,15 @@ public class Network
     
     public double stableRegionMaxServed1() throws IloException
     {
-        IloCplex cplex = new IloCplex();
+        if(cplex == null)
+        {
+            cplex = new IloCplex();
+            cplex.setOut(cplex_log);
+        }
+        else
+        {
+            cplex.clearModel();
+        }
         
         IloNumVar alpha = cplex.numVar(0, 1000);
         
@@ -420,6 +435,8 @@ public class Network
         double alpha_ = cplex.getValue(alpha);
         
         double emptyTime = 0;
+        double avgC = 0;
+        double totalV = 0;
         
         for(int q_idx = 0; q_idx < nodes.size(); q_idx++)
         {
@@ -435,12 +452,18 @@ public class Network
                         
                         emptyTime += cplex.getValue(v[q_idx][r_idx][s_idx]) * getTT(q, r);
                         
+                        avgC += cplex.getValue(v[q_idx][r_idx][s_idx]) * (getTT(q, r) + getTT(r, s));
+                        totalV += cplex.getValue(v[q_idx][r_idx][s_idx]);
                     }
                 }
             }
         }
         
         System.out.println("predicted empty time: "+emptyTime * dt);
+        System.out.println("avgC: "+(avgC/totalV));
+        
+        this.avgC.reset();
+        this.avgC.add(avgC/totalV);
         
         double output = 0;
         
@@ -456,7 +479,15 @@ public class Network
   
     public double stableRegionMaxServedEV() throws IloException
     {
-        IloCplex cplex = new IloCplex();
+        if(cplex == null)
+        {
+            cplex = new IloCplex();
+            cplex.setOut(cplex_log);
+        }
+        else
+        {
+            cplex.clearModel();
+        }
         
         IloNumVar alpha = cplex.numVar(0, 1000);
         
@@ -924,6 +955,11 @@ public class Network
         return output.getAverage();
     }
     
+    public double getAvgC()
+    {
+        return avgC.getAverage();
+    }
+    
     public double getAvgPickupDelay()
     {
         RunningAvg output = new RunningAvg();
@@ -950,6 +986,8 @@ public class Network
                 +" :"+sav.getDelay(path)+" "+path.getTT());
         }
         
+        avgC.add(sav.getDelay(path)+path.getTT());
+        emptyTT += sav.getDelay(path);
         
         sav.dispatch(path);
         

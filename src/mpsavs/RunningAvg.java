@@ -28,7 +28,10 @@ public class RunningAvg implements Serializable
                 x_squared = 0;
 	}
         
-        
+        public String toString()
+        {
+            return ""+getAverage();
+        }
         
   
         /**

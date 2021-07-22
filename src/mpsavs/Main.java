@@ -23,27 +23,56 @@ public class Main {
      */
     public static void main(String[] args) throws IOException, IloException
     {
+        
+        stableRegionTest("Sioux Falls", 100, 400, 25);
+        
         // TODO code application logic here
         
-        MetaSimulation test = new MetaSimulation("test", 16);
+        MetaSimulation test = new MetaSimulation("SiouxFalls", 100);
         
-        System.out.println(test.lineSearch());
+        System.out.println(test.isStable(620.0/28835));
         
-        //Network test = new Network("SiouxFalls", 20.0/28835, 10);
+        //System.out.println(test.lineSearch());
+        
+        Network network = new Network("SiouxFalls", 480.0/28835, 100);
+        
+        //Network network = new Network("test", 45, 100);
+        
         /*
-        Network test = new Network("test", 98, 20);
-        
         test.simulate();
         
         System.out.println(test.getAvgDispatchDelay());
         System.out.println(test.getAvgPickupDelay());
+        */
         
-        
-        System.out.println(test.stableRegionMaxServed()+" "+test.getTotalDemand());
-    */
+        System.out.println(network.stableRegionMaxServed()+" "+network.getTotalDemand());
+    
         //System.out.println("actual empty time: "+test.emptyTT / test.T_hr * test.dt);
         
         //System.out.println(test.total_customers);
+    }
+    
+    public static void stableRegionTest(String name, int min, int max, int inc) throws IOException, IloException
+    {
+        PrintStream fileout = new PrintStream(new FileOutputStream(new File("sr_"+name+""
+                + (Network.EVs? "EVs":"") + ".txt")), true);
+        
+        fileout.println("Fleet size\tSim stable demand\tSim avgC\tCalc stable demand\tCalc avgC");
+        for(int i = min; i <= max; i += inc)
+        {
+            MetaSimulation test = new MetaSimulation(name, i);
+            
+            double sr = test.lineSearch();
+            double avgC = Network.active.getAvgC();
+            
+            Network network = new Network(name, 1, i);
+            
+            double sr2 = network.stableRegionMaxServed();
+            double avgC2 = network.getAvgC();
+            
+            fileout.println(i+"\t"+sr+"\t"+avgC+"\t"+sr2+"\t"+avgC2);
+        }
+        fileout.close();
     }
     
 }
