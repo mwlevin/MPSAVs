@@ -462,7 +462,9 @@ public class Network
         System.out.println("predicted empty time: "+emptyTime * dt);
         System.out.println("avgC: "+(avgC/totalV));
         
-        this.avgC.reset();
+        
+
+        this.avgC = new RunningAvg();
         this.avgC.add(avgC/totalV);
         
         double output = 0;

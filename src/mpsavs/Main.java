@@ -24,15 +24,16 @@ public class Main {
     public static void main(String[] args) throws IOException, IloException
     {
         
-        stableRegionTest("Sioux Falls", 100, 400, 25);
+        stableRegionTest("SiouxFalls", 100, 500, 25);
+        System.exit(0);
         
         // TODO code application logic here
         
         MetaSimulation test = new MetaSimulation("SiouxFalls", 100);
         
-        System.out.println(test.isStable(620.0/28835));
+        //System.out.println(test.isStable(620.0/28835));
         
-        //System.out.println(test.lineSearch());
+        System.out.println(test.lineSearch());
         
         Network network = new Network("SiouxFalls", 480.0/28835, 100);
         
@@ -55,7 +56,7 @@ public class Main {
     public static void stableRegionTest(String name, int min, int max, int inc) throws IOException, IloException
     {
         PrintStream fileout = new PrintStream(new FileOutputStream(new File("sr_"+name+""
-                + (Network.EVs? "EVs":"") + ".txt")), true);
+                + (Network.EVs? "EVs":"") + ".txt"), true), true);
         
         fileout.println("Fleet size\tSim stable demand\tSim avgC\tCalc stable demand\tCalc avgC");
         for(int i = min; i <= max; i += inc)

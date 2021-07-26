@@ -20,6 +20,8 @@ public class MetaSimulation
     private String name;
     
     
+    
+    
     public MetaSimulation(String name,  int fleetsize)
     {
         this.name = name;
@@ -29,6 +31,12 @@ public class MetaSimulation
     
     public double lineSearch() throws IOException
     {
+        Network network = new Network(name, 1, fleetsize);
+        double real_total = network.getTotalDemand();
+        network = null;
+        
+        //System.out.println(total_demand);
+        
         double bot = fleetsize/2;
         double top = fleetsize*12;
         
@@ -41,9 +49,9 @@ public class MetaSimulation
         {
             mid = (bot+top)/2;
             
-            //System.out.println(bot+" "+top+" "+mid);
+            System.out.println(bot+" "+top+" "+mid+" scale="+(mid / real_total));
             
-            if(isStableMC(mid))
+            if(isStableMC(mid / real_total))
             {
                 bot = mid;
             }
@@ -57,7 +65,7 @@ public class MetaSimulation
         
         //mid = (bot+top)/2;
         
-        return total_demand;
+        return mid;
     }
     
 
