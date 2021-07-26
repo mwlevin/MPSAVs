@@ -38,6 +38,7 @@ public class Network
     public static Network active = null;
     
     public static boolean EVs = false;
+    public static boolean BUSES = true;
     
     public double V = 1;
     
@@ -46,6 +47,7 @@ public class Network
     private Set<Link> links;
     private Set<CNode> cnodes;
     private List<Node> enodes;
+    private List<BusRoute> buses;
     
     private Set<SAV> savs;
     
@@ -80,6 +82,7 @@ public class Network
         cnodes = new HashSet<>();
         savs =  new HashSet<>();
         enodes = new ArrayList<>();
+        buses = new ArrayList<>();
         
         Scanner filein = new Scanner(new File("data/"+name+"/network/nodes.txt"));
         filein.nextLine();
@@ -124,6 +127,55 @@ public class Network
         }
         filein.close();
         
+        tts = new TTMatrix(this);
+        
+        filein = new Scanner(new File("data/"+name+"/transit/bus_route_link.txt"));
+        
+        filein.nextLine();
+        
+        int bus_id = 0;
+        BusRoute tempBus = null;
+        Map<Integer, Link> linksmap = createLinkIdsMap();
+        
+        while(filein.hasNextInt())
+        {
+            int id = filein.nextInt();  
+            int seq = filein.nextInt();
+            int linkid = filein.nextInt();
+            boolean stop = filein.nextInt() == 1;
+            filein.nextLine();
+            
+            if(id != bus_id)
+            {
+                if(tempBus != null)
+                {
+                    buses.add(tempBus);
+                }
+                tempBus = new BusRoute(id, linksmap.get(linkid));
+                bus_id = id;
+            }
+ 
+            if(stop)
+            {
+                tempBus.add(linksmap.get(linkid).getEnd());
+            }
+            
+            
+        }
+        
+        if(tempBus != null)
+        {
+            buses.add(tempBus);
+        }
+        
+        if(PRINT)
+        {
+            System.out.println(buses.size()+" bus routes");
+        }
+        
+        
+        
+        
         total_demand = 0;
         
         filein = new Scanner(new File("data/"+name+"/demand/static_od.txt"));
@@ -152,11 +204,31 @@ public class Network
                 dest = dest.getIncoming().iterator().next().getStart();
             }
             
-            cnodes.add(new CNode(origin, dest, demand));
+            // search for duplicates
+            CNode existing = null;
+            for(CNode c : origin.getCNodes())
+            {
+                if(c.getDest() == dest)
+                {
+                    existing = c;
+                    break;
+                }
+            }
+            if(existing == null)
+            {
+                cnodes.add(new CNode(origin, dest, demand));
+            }
+            else
+            {
+                existing.addDemand(demand);
+            }
             
             total_demand += demand;
         }
         filein.close();
+        
+        
+        
         
         if(PRINT)
         {   
@@ -227,7 +299,45 @@ public class Network
             links.remove(l);
         }
         
-        tts = new TTMatrix(this);
+        
+    }
+    
+    public boolean isBusServed(CNode c)
+    {
+        for(BusRoute b : buses)
+        {
+            if(b.isServed(c))
+            {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    public Node getBusDropoff(CNode c)
+    {
+        Node best = c.getDest();
+        int min = getTT(c.getOrigin(), c.getDest());
+        
+        for(BusRoute b : buses)
+        {
+            Node u = b.closestStop(c);
+            
+            if(u == null)
+            {
+                continue;
+            }
+            
+            int temp = getTT(c.getOrigin(), u);
+            if(temp < min)
+            {
+                best = u;
+                min = temp;
+            }
+        }
+        
+        return best;
     }
     
     public int getTT(Node r, Node s)
@@ -266,6 +376,7 @@ public class Network
             for(CNode n : cnodes)
             {
                 n.step();
+
             }
             
             try
@@ -341,14 +452,36 @@ public class Network
             {
                 Node r = nodes.get(r_idx);
                 Node s = nodes.get(s_idx);
+                
+                if(r == s)
+                {
+                    continue;
+                }
 
                 boolean used = false;
                 for(CNode c : r.getCNodes())
                 {
-                    if(c.getDest() == s)
+                    if( BUSES && c.isBusServed())
                     {
-                        used = true;
-                        break;
+                        continue;
+                    }
+                    
+                    if(BUSES)
+                    {
+                        if(c.getBusDropoff() == s)
+                        {
+                            used = true;
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        if(c.getDest() == s)
+                        {
+                            used = true;
+                            break;
+
+                        }
                     }
                 }
                     
@@ -368,9 +501,41 @@ public class Network
         {
             IloLinearNumExpr lhs = cplex.linearNumExpr();
             
+            Node s = null;
+            
+            if(BUSES)
+            {
+                if(c.isBusServed())
+                {
+                    continue;
+                }
+                else
+                {
+                    s = c.getBusDropoff();
+                }
+                
+                /*
+                if(s == c.getOrigin())
+                {
+                    System.out.println(c.getOrigin()+" "+c.getDest()+" "+s+" "+isBusServed(c));
+                    
+                    for(BusRoute b : buses)
+                    {
+                        System.out.println("\t"+b.getId()+" "+b.isServed(c)+" "+b);
+                    }
+                }
+                */
+            }
+            else
+            {
+                s = c.getDest();
+            }
+            
+            
+            
             for(int q = 0; q < v.length; q++)
             {
-                lhs.addTerm(1, v[q][c.getOrigin().getIdx()][c.getDest().getIdx()]);
+                lhs.addTerm(1, v[q][c.getOrigin().getIdx()][s.getIdx()]);
             }
             
             cplex.addGe(lhs, cplex.prod(c.getLambda(), alpha));
@@ -450,6 +615,11 @@ public class Network
                         Node r = nodes.get(r_idx);
                         Node s = nodes.get(s_idx);
                         
+                        if(cplex.getValue(v[q_idx][r_idx][s_idx]) > 0)
+                        {
+                            System.out.println(q+" "+r+" "+s+" "+cplex.getValue(v[q_idx][r_idx][s_idx]));
+                        }
+                        
                         emptyTime += cplex.getValue(v[q_idx][r_idx][s_idx]) * getTT(q, r);
                         
                         avgC += cplex.getValue(v[q_idx][r_idx][s_idx]) * (getTT(q, r) + getTT(r, s));
@@ -459,7 +629,7 @@ public class Network
             }
         }
         
-        System.out.println("predicted empty time: "+emptyTime * dt);
+        System.out.println("predicted empty time: "+emptyTime * dt / savs.size());
         System.out.println("avgC: "+(avgC/totalV));
         
         
@@ -776,7 +946,26 @@ public class Network
         
         for(CNode c : nc)
         {
-            paths.add(new Path(c));
+            if(BUSES)
+            {
+                if(c.isBusServed())
+                {
+                    c.busPickup();
+                    //System.out.println(c+" served by bus");
+                }
+                else
+                {
+                    Path temp = new Path();
+                    temp.add(c, c.getOrigin(), c.getBusDropoff());
+                    paths.add(temp);
+                    //System.out.println(c+" bus dropoff at "+getBusDropoff(c));
+                }
+            }
+            else
+            {
+                paths.add(new Path(c));
+            }
+                
         }
         
         IloIntVar[][] mat = new IloIntVar[paths.size()][nv.size()];
@@ -1017,6 +1206,19 @@ public class Network
     }
     
     public double emptyTT;
+    
+    public Map<Integer, Link> createLinkIdsMap()
+    {
+        Map<Integer, Link> output = new HashMap<>();
+        
+        for(Link l : links)
+        {
+            output.put(l.getId(), l);
+        }
+        
+        return output;
+    }
+    
     
     public Map<Integer, Node> createNodeIdsMap()
     {

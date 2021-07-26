@@ -24,29 +24,29 @@ public class Main {
     public static void main(String[] args) throws IOException, IloException
     {
         
-        stableRegionTest("SiouxFalls", 100, 500, 25);
-        System.exit(0);
+        //stableRegionTest("SiouxFalls", 100, 500, 25);
+        //System.exit(0);
         
         // TODO code application logic here
         
-        MetaSimulation test = new MetaSimulation("SiouxFalls", 100);
+        //MetaSimulation test = new MetaSimulation("SiouxFalls", 100);
         
         //System.out.println(test.isStable(620.0/28835));
         
-        System.out.println(test.lineSearch());
+        //System.out.println(test.lineSearch());
         
         Network network = new Network("SiouxFalls", 480.0/28835, 100);
         
         //Network network = new Network("test", 45, 100);
         
-        /*
-        test.simulate();
         
-        System.out.println(test.getAvgDispatchDelay());
-        System.out.println(test.getAvgPickupDelay());
-        */
+        network.simulate();
         
-        System.out.println(network.stableRegionMaxServed()+" "+network.getTotalDemand());
+        System.out.println(network.getAvgDispatchDelay());
+        System.out.println(network.getAvgPickupDelay());
+        
+        
+        //System.out.println(network.stableRegionMaxServed()+" "+network.getTotalDemand());
     
         //System.out.println("actual empty time: "+test.emptyTT / test.T_hr * test.dt);
         

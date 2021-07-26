@@ -73,6 +73,12 @@ public class Path extends ArrayList<Node>
         return served;
     }
     
+    public void add(CNode c, Node origin, Node dest)
+    {
+        this.add(origin);
+        this.add(dest);
+        served.add(c);
+    }
     public Node getDest()
     {
         return get(size()-1);

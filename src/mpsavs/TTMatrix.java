@@ -26,10 +26,20 @@ public class TTMatrix
         
         for(Node r : nodes)
         {
+            if(r.getType() == 1000)
+            {
+                continue;
+            }
+            
             network.dijkstras(r);
             
             for(Node s : nodes)
             {
+                if(s.getType() == 1000)
+                {
+                    continue;
+                }
+                
                 mat[r.getIdx()][s.getIdx()] = s.cost;
                 length[r.getIdx()][s.getIdx()] = s.length;
             }

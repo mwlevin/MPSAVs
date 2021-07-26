@@ -22,6 +22,9 @@ public class CNode
     private double lambda;
 
     private Node origin, dest;
+    
+    private boolean isBusServed;
+    private Node closestDropoff;
 
     public CNode(Node origin, Node dest, double lambda)
     {
@@ -35,6 +38,28 @@ public class CNode
         dispatchDelay = new RunningAvg();
         
         origin.addCNode(this);
+        
+        isBusServed = Network.BUSES && Network.active.isBusServed(this);
+        
+        if(Network.BUSES)
+        {
+            closestDropoff = Network.active.getBusDropoff(this);
+        }
+    }
+    
+    public boolean isBusServed()
+    {
+        return isBusServed;
+    }
+    
+    public Node getBusDropoff()
+    {
+        return closestDropoff;
+    }
+    
+    public void addDemand(double l)
+    {
+        this.lambda += l * Network.dt;
     }
     
     public Node getOrigin()
@@ -45,6 +70,11 @@ public class CNode
     public Node getDest()
     {
         return dest;
+    }
+    
+    public void busPickup()
+    {
+        waiting.remove(0);
     }
     
     public void pickup(SAV sav, Path path)
