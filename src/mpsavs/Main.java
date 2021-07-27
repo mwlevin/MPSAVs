@@ -21,7 +21,7 @@ public class Main {
     /**
      * @param args the command line arguments
      */
-    public static void main(String[] args) throws IOException, IloException
+    public static void main(String[] args) throws Exception
     {
         
         //stableRegionTest("SiouxFalls", 100, 500, 25);
@@ -37,13 +37,16 @@ public class Main {
         
         Network network = new Network("SiouxFalls", 480.0/28835, 100);
         
+        
+        network.test();
+        
         //Network network = new Network("test", 45, 100);
         
         
-        network.simulate();
+        //network.simulate();
         
-        System.out.println(network.getAvgDispatchDelay());
-        System.out.println(network.getAvgPickupDelay());
+        //System.out.println(network.getAvgDispatchDelay());
+        //System.out.println(network.getAvgPickupDelay());
         
         
         //System.out.println(network.stableRegionMaxServed()+" "+network.getTotalDemand());

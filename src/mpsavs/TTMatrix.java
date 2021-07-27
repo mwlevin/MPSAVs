@@ -53,6 +53,11 @@ public class TTMatrix
             throw new RuntimeException("using centroid node");
         }
         
+        if(r == s)
+        {
+            return 0;
+        }
+        
         return length[r.getIdx()][s.getIdx()];
     }
     public int getTT(Node r, Node s)
@@ -60,6 +65,11 @@ public class TTMatrix
         if(r.getType() == 1000 || s.getType() == 1000)
         {
             throw new RuntimeException("using centroid node");
+        }
+        
+        if(r == s)
+        {
+            return 0;
         }
         
         return mat[r.getIdx()][s.getIdx()];

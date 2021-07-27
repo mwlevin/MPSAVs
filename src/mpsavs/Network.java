@@ -17,6 +17,7 @@ import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -33,12 +34,13 @@ public class Network
     
     public int total_customers;
     
-    public static final int SAV_CAPACITY = 1;
+    public static final int SAV_CAPACITY = 2;
     
     public static Network active = null;
     
     public static boolean EVs = false;
-    public static boolean BUSES = true;
+    public static boolean RIDESHARING = true;
+    public static boolean BUSES = false;
     
     public double V = 1;
     
@@ -417,7 +419,11 @@ public class Network
     
     public double stableRegionMaxServed() throws IloException
     {
-        if(EVs)
+        if(RIDESHARING)
+        {
+            return stableRegionMaxServedRS();
+        }
+        else if(EVs)
         {
             return stableRegionMaxServedEV();
         }
@@ -425,6 +431,344 @@ public class Network
         {
             return stableRegionMaxServed1();
         }
+    }
+    
+    public double stableRegionMaxServedRS() throws IloException
+    {
+        Map<Node, List<Path>> paths = new HashMap<>();
+        
+        for(Node q : nodes)
+        {
+            List<Path> temp = new ArrayList<>();
+            
+            paths.put(q, temp);
+            
+            for(CNode c : cnodes)
+            {
+                temp.add(createSRPath(q, new CNode[]{c}));
+            }
+            
+            if(SAV_CAPACITY >= 2)
+            {
+                for(CNode c1 : cnodes)
+                {
+                    for(CNode c2 : cnodes)
+                    {
+                        if(c1 != c2)
+                        {
+                            temp.add(createSRPath(q, new CNode[]{c1, c2}));
+                        }
+                    }
+                }
+            }
+            
+            if(SAV_CAPACITY >= 3)
+            {
+                for(CNode c1 : cnodes)
+                {
+                    for(CNode c2 : cnodes)
+                    {
+                        for(CNode c3 : cnodes)
+                        {
+                            if(c1 != c2 && c2 != c3 && c1 != c3)
+                            {
+                                temp.add(createSRPath(q, new CNode[]{c1, c2, c3}));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        Map<Node, Map<Path, IloNumVar>> gamma = new HashMap<>();
+        
+        
+        
+        
+        return 0;
+    }
+    
+    public Path createSRPath(Node q, CNode[] customers) throws IloException
+    {
+        
+        if(customers.length == 1)
+        {
+            Path output = new Path();
+            output.add(q);
+            output.add(customers[0].getOrigin());
+            output.add(customers[0].getDest());
+            
+            return output;
+        }
+        if(cplex == null)
+        {
+            cplex = new IloCplex();
+            cplex.setOut(cplex_log);
+        }
+        else
+        {
+            cplex.clearModel();
+        }
+        
+        Node dummy = new Node(0, 0);
+        
+        Node[] nodes = new Node[1 + customers.length*2 + 1];
+        nodes[0] = q;
+        nodes[nodes.length-1] = dummy;
+        
+        for(int i = 0; i < customers.length; i++)
+        {
+            nodes[1 + i*2] = customers[i].getOrigin();
+            nodes[1 + i*2 + 1] = customers[i].getDest();
+        }
+        
+        IloIntVar[] sigma = new IloIntVar[nodes.length];
+        
+        for(int i = 0; i < nodes.length; i++)
+        {
+            sigma[i] = cplex.intVar(0, nodes.length);
+        }
+        
+        IloIntVar[][] f = new IloIntVar[nodes.length][nodes.length];
+        
+        for(int i = 0; i < f.length-1; i++)
+        {
+            for(int j = 1; j < f.length; j++)
+            {
+                // ignore links from q to customer destination
+                if(i == 0 && j % 2 == 0)
+                {
+                    continue;
+                }
+                
+                if(i == 0 && j == f.length-1)
+                {
+                    continue;
+                }
+                
+                if(j == f.length-1 && i%2 == 1)
+                {
+                    continue;
+                }
+                
+                if(i != j)
+                {
+                    f[i][j] = cplex.intVar(0, 1);
+                }
+            }
+        }
+        
+        // (39e)
+        
+        for(int i = 0; i < customers.length; i++)
+        {
+            cplex.addLe(sigma[1 + 2*i], cplex.sum(1, sigma[1 + 2*i + 1]));
+        }
+        
+        // (39f)
+        
+        int M = nodes.length;
+        
+        for(int i = 0; i < f.length; i++)
+        {
+            for(int j = 1; j < f.length; j++)
+            {
+                if(f[i][j] == null)
+                {
+                    continue;
+                }
+                
+                cplex.addLe(sigma[i], cplex.sum(cplex.sum(1, sigma[j]), cplex.prod(M, f[i][j]) ));
+            }
+        }
+        
+        cplex.addEq(sigma[0], 0);
+        
+        // (39b)
+        
+        IloLinearNumExpr lhs = cplex.linearNumExpr();
+        
+        for(int c = 0; c < customers.length; c++)
+        {
+            lhs.addTerm(1, f[0][1 + c*2]);
+
+        }
+        
+        cplex.addEq(lhs, 1);
+        
+        lhs = cplex.linearNumExpr();
+        
+        for(int c = 0; c < customers.length; c++)
+        {
+            lhs.addTerm(1, f[1 + c*2+1][nodes.length-1]);
+
+        }
+        
+        cplex.addEq(lhs, 1);
+        
+        // (39c)
+        
+        
+        
+        for(int c = 0; c < customers.length; c++)
+        {
+            lhs = cplex.linearNumExpr();
+            
+            for(int i = 0; i < nodes.length-1; i++)
+            {
+                if(c*2+1 == i)
+                {
+                    continue;
+                }
+                
+                lhs.addTerm(1, f[i][c*2+1]);
+            }
+            cplex.addEq(lhs, 1);
+            
+            
+            lhs = cplex.linearNumExpr();
+            
+            for(int i = 1; i < nodes.length-1; i++)
+            {
+                if(c*2+1 == i)
+                {
+                    continue;
+                }
+                
+                lhs.addTerm(1, f[c*2+1][i]);
+            }
+            
+            cplex.addEq(lhs, 1);
+            
+            lhs = cplex.linearNumExpr();
+            
+            for(int i = 1; i < nodes.length-1; i++)
+            {
+                if(1+c*2+1 == i)
+                {
+                    continue;
+                }
+                
+                lhs.addTerm(1, f[i][1+c*2+1]);
+            }
+            
+            cplex.addEq(lhs, 1);
+            
+            lhs = cplex.linearNumExpr();
+            
+            for(int i = 1; i < nodes.length; i++)
+            {
+                if(1+c*2+1 == i)
+                {
+                    continue;
+                }
+                
+                lhs.addTerm(1, f[1+c*2+1][i]);
+            }
+            
+            cplex.addEq(lhs, 1);
+
+        }
+        
+        // (39a)
+        lhs = cplex.linearNumExpr();
+        for(int i = 0; i < nodes.length; i++)
+        {
+            for(int j = 1; j < nodes.length-1; j++)
+            {
+                if(f[i][j] != null)
+                {               
+                    lhs.addTerm(f[i][j], getTT(nodes[i], nodes[j]));
+                }
+            }
+        }
+        
+        cplex.addMinimize(lhs);
+        
+        cplex.solve();
+        
+        //System.out.println(cplex.getObjValue());
+        
+        /*
+        for(int j = 0; j < nodes.length; j++)
+        {
+            System.out.print("\t"+nodes[j]);
+        }
+        System.out.println();
+        
+        for(int i = 0; i < nodes.length; i++)
+        {
+            System.out.print(nodes[i]+"\t");
+            
+            for(int j = 0; j < nodes.length; j++)
+            {
+                if(f[i][j] != null)
+                {
+                    System.out.print((int)cplex.getValue(f[i][j])+"\t");
+                }
+                else
+                {
+                    System.out.print("\t");
+                }
+            }
+            
+            System.out.println();
+        }
+        */
+
+        Path output = new Path();
+        
+        int curr = 0;
+        
+        while(curr != nodes.length-1)
+        {
+            inner: for(int j = 0; j < nodes.length; j++)
+            {
+                if(f[curr][j] != null && cplex.getValue(f[curr][j]) == 1)
+                {
+                    output.add(nodes[curr]);
+                    curr = j;
+                    break inner;
+                }
+            }
+        }
+        
+        //System.out.println(output);
+        
+        return output;
+        
+        
+    }
+    
+    public void test() throws Exception
+    {
+        Node q = nodes.get(0);
+        
+        CNode c1 = null;
+        CNode c2 = null;
+        
+        Iterator<CNode> iter = cnodes.iterator();
+        
+        int count = 0;
+        
+        while(iter.hasNext())
+        {
+            count++;
+            CNode temp = iter.next();
+            
+            if(temp.getOrigin().getId() == 3 && temp.getDest().getId() == 22)
+            {
+                c1 = temp;
+            }
+            if(temp.getOrigin().getId() == 4 && temp.getDest().getId() == 20)
+            {
+                c2 = temp;
+            }
+        }
+        
+        
+        System.out.println(q+" "+c1+" "+c2);
+        createSRPath(q, new CNode[]{c1, c2});
     }
     
     public double stableRegionMaxServed1() throws IloException
