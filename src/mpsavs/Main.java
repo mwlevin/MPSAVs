@@ -38,7 +38,7 @@ public class Main {
         Network network = new Network("SiouxFalls", 480.0/28835, 100);
         
         
-        network.test();
+        //network.test();
         
         //Network network = new Network("test", 45, 100);
         
@@ -49,7 +49,7 @@ public class Main {
         //System.out.println(network.getAvgPickupDelay());
         
         
-        //System.out.println(network.stableRegionMaxServed()+" "+network.getTotalDemand());
+        System.out.println(network.stableRegionMaxServed()+" "+network.getTotalDemand());
     
         //System.out.println("actual empty time: "+test.emptyTT / test.T_hr * test.dt);
         

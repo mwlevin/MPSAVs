@@ -435,17 +435,20 @@ public class Network
     
     public double stableRegionMaxServedRS() throws IloException
     {
-        Map<Node, List<Path>> paths = new HashMap<>();
+        Map<Node, Map<Path, IloNumVar>> gamma = new HashMap<>();
+        
+        int count = 0;
         
         for(Node q : nodes)
         {
-            List<Path> temp = new ArrayList<>();
+            Map<Path, IloNumVar> temp = new HashMap<>();
             
-            paths.put(q, temp);
+            gamma.put(q, temp);
             
             for(CNode c : cnodes)
             {
-                temp.add(createSRPath(q, new CNode[]{c}));
+                temp.put(createSRPath(q, new CNode[]{c}), null);
+                count++;
             }
             
             if(SAV_CAPACITY >= 2)
@@ -456,7 +459,8 @@ public class Network
                     {
                         if(c1 != c2)
                         {
-                            temp.add(createSRPath(q, new CNode[]{c1, c2}));
+                            temp.put(createSRPath(q, new CNode[]{c1, c2}), null);
+                            count++;
                         }
                     }
                 }
@@ -472,7 +476,7 @@ public class Network
                         {
                             if(c1 != c2 && c2 != c3 && c1 != c3)
                             {
-                                temp.add(createSRPath(q, new CNode[]{c1, c2, c3}));
+                                temp.put(createSRPath(q, new CNode[]{c1, c2, c3}), null);
                             }
                         }
                     }
@@ -480,7 +484,7 @@ public class Network
             }
         }
         
-        Map<Node, Map<Path, IloNumVar>> gamma = new HashMap<>();
+        
         
         for(Node q : gamma.keySet())
         {
