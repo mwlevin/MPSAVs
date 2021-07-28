@@ -34,6 +34,11 @@ public class Path extends ArrayList<Node>
         this.served = served;
     }
     
+    public void add(CNode c)
+    {
+        served.add(c);
+    }
+    
     public boolean isServed(CNode n)
     {
         return served.contains(n);

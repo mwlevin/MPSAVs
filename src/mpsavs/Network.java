@@ -482,10 +482,95 @@ public class Network
         
         Map<Node, Map<Path, IloNumVar>> gamma = new HashMap<>();
         
+        for(Node q : gamma.keySet())
+        {
+            for(Path pi : gamma.get(q).keySet())
+            {
+                gamma.get(q).put(pi, cplex.numVar(0, Integer.MAX_VALUE));
+            }
+        }
+        
+        IloNumVar alpha = cplex.numVar(0, Integer.MAX_VALUE);
+        
+        // (40)
+        
+        IloLinearNumExpr lhs = cplex.linearNumExpr();
+        
+        
+        for(Node q : gamma.keySet())
+        {
+            for(Path pi : gamma.get(q).keySet())
+            {
+                lhs.addTerm(gamma.get(q).get(pi), pi.getTT());
+            }
+        }
+        
+        cplex.addLe(lhs, savs.size());
+        
+        
+        for(Node r : gamma.keySet())
+        {
+            lhs = cplex.linearNumExpr();
+            IloLinearNumExpr rhs = cplex.linearNumExpr();
+            
+            for(Path pi : gamma.get(r).keySet())
+            {
+                lhs.addTerm(gamma.get(r).get(pi), 1);
+            }
+            
+            for(Node q : gamma.keySet())
+            {
+                for(Path pi : gamma.get(q).keySet())
+                {
+                    if(pi.getDest() == r)
+                    {
+                        rhs.addTerm(gamma.get(q).get(pi), 1);
+                    }
+                }
+            }
+            
+            cplex.addEq(lhs, rhs);
+        }
+        
+        // (41)
+        
+        // (10)
+        
+        for(CNode c : cnodes)
+        {
+            lhs = cplex.linearNumExpr();
+            
+            for(Node q : gamma.keySet())
+            {
+                for(Path pi : gamma.get(q).keySet())
+                {
+                    if(pi.isServed(c))
+                    {
+                        lhs.addTerm(1, gamma.get(q).get(pi));
+                    }
+                }
+            }
+            
+            cplex.addGe(lhs, cplex.prod(alpha, c.getLambda()));
+        }
+        
+        cplex.addMaximize(alpha);
         
         
         
-        return 0;
+        double output = 0;
+
+        
+        for(CNode n : cnodes)
+        {
+            output += n.getLambda();
+        }
+        
+        output *= cplex.getValue(alpha);
+        
+        
+        
+        return output;
     }
     
     public Path createSRPath(Node q, CNode[] customers) throws IloException
@@ -497,6 +582,8 @@ public class Network
             output.add(q);
             output.add(customers[0].getOrigin());
             output.add(customers[0].getDest());
+            
+            output.add(customers[0]);
             
             return output;
         }
@@ -733,6 +820,10 @@ public class Network
             }
         }
         
+        for(CNode c : customers)
+        {
+            output.add(c);
+        }
         //System.out.println(output);
         
         return output;

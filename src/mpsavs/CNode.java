@@ -47,6 +47,8 @@ public class CNode
         }
     }
     
+    
+    
     public boolean isBusServed()
     {
         return isBusServed;
