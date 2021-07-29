@@ -119,7 +119,7 @@ public class MetaSimulation
   
             System.out.println("diff "+((i+1)*60)+" = "+diff[i]);
             
-            if(diff[i] < 0.2)
+            if(diff[i] < 0.1)
             {
                 count++;
             }
@@ -127,7 +127,7 @@ public class MetaSimulation
         
         
         
-        return diff[diff.length-1] < 0.2 || count >= diff.length/2;
+        return diff[diff.length-1] < 0.1 || count >= diff.length/2;
     }
     
     public double[] getLowPassFilter(double[] avg)
