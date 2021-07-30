@@ -1164,16 +1164,17 @@ public class Network
                             */
                         }
                         
-                        emptyTime += cplex.getValue(v[q_idx][r_idx][s_idx]) * getTT(q, r);
+                        emptyTime += cplex.getValue(v[q_idx][r_idx][s_idx]) * getTT(q, r) / (1.0/dt / 60);
                         
-                        avgC += cplex.getValue(v[q_idx][r_idx][s_idx]) * (getTT(q, r) + getTT(r, s)) * (1.0/dt / 60);
+                        avgC += cplex.getValue(v[q_idx][r_idx][s_idx]) * (getTT(q, r) + getTT(r, s)) / (1.0/dt / 60);
                         totalV += cplex.getValue(v[q_idx][r_idx][s_idx]);
                     }
                 }
             }
         }
         
-        System.out.println("predicted empty time: "+emptyTime * dt / savs.size());
+        
+        System.out.println("predicted empty time: "+emptyTime  / savs.size());
         System.out.println("avgC: "+(avgC/totalV));
         
         
