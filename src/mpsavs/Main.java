@@ -10,6 +10,8 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Scanner;
 
 /**
@@ -35,8 +37,9 @@ public class Main {
         
         //System.out.println(test.lineSearch());
         
-        Network network = new Network("SiouxFalls", 480.0/28835, 100);
+        //Network network = new Network("SiouxFalls", 480.0/28835, 100);
         
+        Network network = new Network("coacongress", 480.0/62836, 100);
         
         //network.test();
         
@@ -48,9 +51,12 @@ public class Main {
         //System.out.println(network.getAvgDispatchDelay());
         //System.out.println(network.getAvgPickupDelay());
         
+        network.createRSPaths();
         
-        System.out.println(network.stableRegionMaxServed()+" "+network.getTotalDemand());
+        //System.out.println(network.stableRegionMaxServed()+" "+network.getTotalDemand());
     
+        
+        
         //System.out.println("actual empty time: "+test.emptyTT / test.T_hr * test.dt);
         
         //System.out.println(test.total_customers);

@@ -15,6 +15,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -39,7 +40,7 @@ public class Network
     public static Network active = null;
     
     public static boolean EVs = false;
-    public static boolean RIDESHARING = true;
+    public static boolean RIDESHARING = false;
     public static boolean BUSES = false;
     
     public double V = 1;
@@ -125,7 +126,7 @@ public class Network
             filein.nextLine();
             
             links.add(new Link(id, nodemap.get(source_id), nodemap.get(dest_id), 
-                    length, (int)Math.round(length/speed / dt)));
+                    length, (int)Math.ceil(length/speed / dt)));
         }
         filein.close();
         
@@ -417,7 +418,7 @@ public class Network
     }
     
     
-    public double stableRegionMaxServed() throws IloException
+    public double stableRegionMaxServed() throws IloException, IOException
     {
         if(RIDESHARING)
         {
@@ -433,25 +434,88 @@ public class Network
         }
     }
     
-    public double stableRegionMaxServedRS() throws IloException
+    private String printPath(Path path)
     {
-        Map<Node, Map<Path, IloNumVar>> gamma = new HashMap<>();
+        Node q = path.get(0);
+        
+        String output = ""+q;
+        
+        for(CNode c : path.getServed())
+        {
+            output += "\t"+c.getOrigin()+"\t"+c.getDest();
+        }
+        
+        for(Node n : path)
+        {
+            output += "\t"+n;
+        }
+        
+        return output;
+    }
+    
+    public void loadRSPaths(Map<Node, Map<Path, IloNumVar>> gamma) throws IOException
+    {
+        Map<Integer, Node> nodesmap = createNodeIdsMap();
+        
+        for(int i = 1; i <= SAV_CAPACITY; i++)
+        {
+            Scanner filein = new Scanner(new File("data/"+name+"/rs_paths_"+i+".txt"));
+            
+            while(filein.hasNextLine())
+            {
+                Scanner chopper = new Scanner(filein.nextLine());
+                
+                
+                Node q = nodesmap.get(chopper.nextInt());
+                
+                Path temp = new Path();
+                
+                for(int j = 0; j < i; j++)
+                {
+                    temp.add(nodesmap.get(chopper.nextInt()).getCNode(nodesmap.get(chopper.nextInt())));
+                }
+                
+                while(chopper.hasNextInt())
+                {
+                    temp.add(nodesmap.get(chopper.nextInt()));
+                }
+                
+                if(!gamma.containsKey(q))
+                {
+                    gamma.put(q, new HashMap<>());
+                }
+                
+                gamma.get(q).put(temp, null);
+            }
+        }
+    }
+    
+    public void createRSPaths() throws IloException, IOException
+    {
         
         int count = 0;
         
+        PrintStream fileout = new PrintStream(new FileOutputStream("data/"+name+"/rs_paths_1.txt"), true);
+        
         for(Node q : nodes)
         {
-            Map<Path, IloNumVar> temp = new HashMap<>();
-            
-            gamma.put(q, temp);
             
             for(CNode c : cnodes)
             {
-                temp.put(createSRPath(q, new CNode[]{c}), null);
+                Path path = createSRPath(q, new CNode[]{c});
+                fileout.println(printPath(path));
+                
                 count++;
             }
+        }
             
-            if(SAV_CAPACITY >= 2)
+        fileout.close();
+
+        if(SAV_CAPACITY >= 2)
+        {
+            fileout = new PrintStream(new FileOutputStream("data/"+name+"/rs_paths_2.txt"), true);
+            
+            for(Node q : nodes)
             {
                 for(CNode c1 : cnodes)
                 {
@@ -459,14 +523,26 @@ public class Network
                     {
                         if(c1 != c2)
                         {
-                            temp.put(createSRPath(q, new CNode[]{c1, c2}), null);
+                            
+                            Path path = createSRPath(q, new CNode[]{c1, c2});
+                            
+                            fileout.println(printPath(path));
                             count++;
                         }
                     }
                 }
             }
             
-            if(SAV_CAPACITY >= 3)
+            fileout.close();
+        }
+
+        
+            
+        if(SAV_CAPACITY >= 3)
+        {
+            fileout = new PrintStream(new FileOutputStream("data/"+name+"/rs_paths_3.txt"), true);
+            
+            for(Node q : nodes)
             {
                 for(CNode c1 : cnodes)
                 {
@@ -476,15 +552,27 @@ public class Network
                         {
                             if(c1 != c2 && c2 != c3 && c1 != c3)
                             {
-                                temp.put(createSRPath(q, new CNode[]{c1, c2, c3}), null);
+                                Path path = createSRPath(q, new CNode[]{c1, c2, c3});
+                                fileout.println(printPath(path));
+                                count++;
                             }
                         }
                     }
                 }
             }
+            
+            fileout.close();
         }
+    
         
+        System.out.println(count+" paths");
+    }
+    
+    public double stableRegionMaxServedRS() throws IloException, IOException
+    {
+        Map<Node, Map<Path, IloNumVar>> gamma = new HashMap<>();
         
+        loadRSPaths(gamma);
         
         for(Node q : gamma.keySet())
         {
@@ -579,6 +667,7 @@ public class Network
     
     public Path createSRPath(Node q, CNode[] customers) throws IloException
     {
+        //System.out.println("Creating path "+q+"- "+Arrays.toString(customers));
         
         if(customers.length == 1)
         {
@@ -880,6 +969,7 @@ public class Network
         
         IloNumVar alpha = cplex.numVar(0, 1000);
         
+        int count = 0;
         
         IloNumVar[][][] v = new IloNumVar[nodes.size()][nodes.size()][nodes.size()];
         
@@ -928,12 +1018,14 @@ public class Network
                 {
                     for(int q_idx = 0; q_idx < nodes.size(); q_idx++)
                     {
-                    
+                        count++;
                         v[q_idx][r_idx][s_idx] = cplex.numVar(0, Integer.MAX_VALUE);
                     }
                 }
             }
         }
+        
+        System.out.println(count+" variables");
         
         // demand constraint
         for(CNode c : cnodes)
@@ -1056,12 +1148,15 @@ public class Network
                         
                         if(cplex.getValue(v[q_idx][r_idx][s_idx]) > 0)
                         {
-                            System.out.println(q+" "+r+" "+s+" "+cplex.getValue(v[q_idx][r_idx][s_idx]));
+                            /*
+                            System.out.println(q+" "+r+" "+s+" "+cplex.getValue(v[q_idx][r_idx][s_idx])+
+                                    " "+getTT(q, r)+" "+getTT(r, s));
+                            */
                         }
                         
                         emptyTime += cplex.getValue(v[q_idx][r_idx][s_idx]) * getTT(q, r);
                         
-                        avgC += cplex.getValue(v[q_idx][r_idx][s_idx]) * (getTT(q, r) + getTT(r, s));
+                        avgC += cplex.getValue(v[q_idx][r_idx][s_idx]) * (getTT(q, r) + getTT(r, s)) * (1.0/dt / 60);
                         totalV += cplex.getValue(v[q_idx][r_idx][s_idx]);
                     }
                 }
@@ -1616,7 +1711,7 @@ public class Network
                 +" :"+sav.getDelay(path)+" "+path.getTT());
         }
         
-        avgC.add(sav.getDelay(path)+path.getTT());
+        avgC.add( (sav.getDelay(path)+path.getTT()) * (1.0/dt / 60));
         emptyTT += sav.getDelay(path);
         
         sav.dispatch(path);

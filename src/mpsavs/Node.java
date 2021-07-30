@@ -59,6 +59,19 @@ public class Node
         return cnodes;
     }
     
+    public CNode getCNode(Node s)
+    {
+        for(CNode c : cnodes)
+        {
+            if(c.getDest() == s)
+            {
+                return c;
+            }
+        }
+        
+        return null;
+    }
+    
     
     public int getIdx()
     {
