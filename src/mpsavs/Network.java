@@ -570,6 +570,16 @@ public class Network
     
     public double stableRegionMaxServedRS() throws IloException, IOException
     {
+        if(cplex == null)
+        {
+            cplex = new IloCplex();
+            cplex.setOut(cplex_log);
+        }
+        else
+        {
+            cplex.clearModel();
+        }
+        
         Map<Node, Map<Path, IloNumVar>> gamma = new HashMap<>();
         
         loadRSPaths(gamma);
