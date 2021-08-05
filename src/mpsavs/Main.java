@@ -13,6 +13,7 @@ import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Scanner;
+import static mpsavs.Network.dt;
 
 /**
  *
@@ -25,6 +26,34 @@ public class Main {
      */
     public static void main(String[] args) throws Exception
     {
+        /*
+        Scanner filein = new Scanner(new File("data/coacongress/network/nodes_old.txt"));
+        PrintStream fileout = new PrintStream(new FileOutputStream(new File("data/coacongress/network/nodes.txt")), true);
+        
+        fileout.println(filein.nextLine());
+        
+        int count = 0;
+        while(filein.hasNext())
+        {
+            int id = filein.nextInt();
+            int type = filein.nextInt();
+            double lng = filein.nextDouble();
+            double lat = filein.nextDouble();
+            double elev = filein.nextDouble();
+            
+            if(type == 100 && Math.random() < 0.05)
+            {
+                count++;
+                type = 200;
+            }
+            
+            fileout.println(id+"\t"+type+"\t"+lng+"\t"+lat+"\t"+elev);
+        }
+        fileout.close();
+        
+        System.out.println(count);
+        
+        */
         
         //stableRegionTest("SiouxFalls", 100, 500, 25);
         //System.exit(0);
@@ -51,9 +80,9 @@ public class Main {
         //System.out.println(network.getAvgDispatchDelay());
         //System.out.println(network.getAvgPickupDelay());
         
-        network.createRSPaths();
+        //network.createRSPaths();
         
-        //System.out.println(network.stableRegionMaxServed()+" "+network.getTotalDemand());
+        System.out.println(network.stableRegionMaxServed()+" "+network.getTotalDemand());
     
         
         

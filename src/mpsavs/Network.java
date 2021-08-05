@@ -39,7 +39,7 @@ public class Network
     
     public static Network active = null;
     
-    public static boolean EVs = false;
+    public static boolean EVs = true;
     public static boolean RIDESHARING = false;
     public static boolean BUSES = false;
     
@@ -1174,7 +1174,7 @@ public class Network
         }
         
         
-        System.out.println("predicted empty time: "+emptyTime  / savs.size());
+        System.out.println("predicted empty time: "+emptyTime  / totalV);
         System.out.println("avgC: "+(avgC/totalV));
         
         
@@ -1296,16 +1296,19 @@ public class Network
                                 double projected = start_battery - getLength(q, closestCharger);
                                 double rechargeTime = (SAEV.max_battery - projected)/SAEV.charge_rate;
                                 
-                                tt += rechargeTime;
                                 
-                                //System.out.println("recharge "+rechargeTime+" "+projected);
+                                tt += rechargeTime * dt;
                                 
-                                tt += getTT(q, closestCharger)*dt;
-                                tt += getTT(closestCharger, r)*dt;
+                                
+                                
+                                tt += getTT(q, closestCharger) * dt;
+                                tt += getTT(closestCharger, r) * dt;
+                                
+                                //tt += getTT(q, r)*dt;
                             }
                             else
                             {
-                                 tt += getTT(q, r)*dt;
+                                 tt += getTT(q, r) * dt;
                             }
                             
                             // (getTT(q, r)+getTT(r, s))*dt
@@ -1402,6 +1405,8 @@ public class Network
         double alpha_ = cplex.getValue(alpha);
         
         double emptyTime = 0;
+        double avgC = 0;
+        double total_v = 0;
         
         for(int q_idx = 0; q_idx < nodes.size(); q_idx++)
         {
@@ -1428,20 +1433,32 @@ public class Network
                             {
                                 Node closestCharger = SAEV.getBestCharger(q, r);
                                 
-                                double projected = (double)b/b_db * SAEV.max_battery - getLength(q, closestCharger);
+                                double projected = (double)(b+1)/b_db * SAEV.max_battery - getLength(q, closestCharger);
+                                
+                                //System.out.println(((double)(b+1)/b_db * SAEV.max_battery)+" "+getLength(q, closestCharger));
                                 int rechargeTime = (int)Math.ceil( (SAEV.max_battery - projected)/SAEV.charge_rate / dt);
                                 
+                                
+                                /*
                                 tt += rechargeTime;
                                 
                                 tt += getTT(q, closestCharger);
                                 tt += getTT(closestCharger, r);
+                                */
+                                tt += getTT(q, r);
+                                
+                                //System.out.println("recharge "+rechargeTime+" "+projected+ " "+getTT(q, closestCharger)+" "+getTT(closestCharger, r)+" "+getTT(q, r));
                             }
                             else
                             {
                                  tt += getTT(q, r);
                             }
+                            //System.out.println(tt+" "+getTT(q, r));
                             
-                            emptyTime += cplex.getValue(v[q_idx][r_idx][s_idx][b]) * tt;
+                            
+                            emptyTime += cplex.getValue(v[q_idx][r_idx][s_idx][b]) * tt / (1.0/dt / 60);
+                            avgC += cplex.getValue(v[q_idx][r_idx][s_idx][b]) * (tt + getTT(r, s)) / (1.0/dt / 60);
+                            total_v += cplex.getValue(v[q_idx][r_idx][s_idx][b]);
                             
                             //System.out.println(q+" "+r+" "+s+" : "+b+" - "+ cplex.getValue(v[q_idx][r_idx][s_idx][b]));
                         }
@@ -1451,7 +1468,11 @@ public class Network
             }
         }
         
-        System.out.println("predicted empty time: "+emptyTime * dt);
+        System.out.println("predicted empty time: "+emptyTime / total_v);
+        System.out.println("avg C: "+avgC / total_v);
+        
+        this.avgC = new RunningAvg();
+        this.avgC.add(avgC / total_v);
         
         double output = 0;
         
