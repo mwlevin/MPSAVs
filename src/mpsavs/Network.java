@@ -39,7 +39,7 @@ public class Network
     
     public static Network active = null;
     
-    public static boolean EVs = false;
+    public static boolean EVs = true;
     public static boolean RIDESHARING = false;
     public static boolean BUSES = false;
     
@@ -1250,10 +1250,10 @@ public class Network
         
         IloNumVar alpha = cplex.numVar(0, 1000);
         
-        int b_db = 2;
+        int b_db = 10;
         
         IloNumVar[][][][] v = new IloNumVar[nodes.size()][nodes.size()][nodes.size()][b_db];
-        
+        double[][][][] tts = new double[nodes.size()][nodes.size()][nodes.size()][b_db];
         
             
         for(int r_idx = 0; r_idx < nodes.size(); r_idx++)
@@ -1336,8 +1336,9 @@ public class Network
                                 Node closestCharger = SAEV.getBestCharger(q, r);
                                 
                                 double projected = start_battery - getLength(q, closestCharger);
-                                double rechargeTime = (SAEV.max_battery - projected)/SAEV.charge_rate;
+                                int rechargeTime = (int)Math.ceil((SAEV.max_battery - projected)/SAEV.charge_rate/dt);
                                 
+                                //System.out.println(rechargeTime);
                                 
                                 tt += rechargeTime * dt;
                                 
@@ -1356,6 +1357,7 @@ public class Network
                             // (getTT(q, r)+getTT(r, s))*dt
                             
                             lhs.addTerm(v[q_idx][r_idx][s_idx][b], tt);
+                            tts[q_idx][r_idx][s_idx][b] = tt;
                         }
                         
                         //System.out.println((getTT(q, r)+getTT(r, s))*dt);
@@ -1481,13 +1483,13 @@ public class Network
                                 int rechargeTime = (int)Math.ceil( (SAEV.max_battery - projected)/SAEV.charge_rate / dt);
                                 
                                 
-                                /*
+                                
                                 tt += rechargeTime;
                                 
                                 tt += getTT(q, closestCharger);
                                 tt += getTT(closestCharger, r);
-                                */
-                                tt += getTT(q, r);
+                                
+                                //tt += getTT(q, r);
                                 
                                 //System.out.println("recharge "+rechargeTime+" "+projected+ " "+getTT(q, closestCharger)+" "+getTT(closestCharger, r)+" "+getTT(q, r));
                             }
@@ -1499,7 +1501,7 @@ public class Network
                             
                             
                             emptyTime += cplex.getValue(v[q_idx][r_idx][s_idx][b]) * tt / (1.0/dt / 60);
-                            avgC += cplex.getValue(v[q_idx][r_idx][s_idx][b]) * (tt + getTT(r, s)) / (1.0/dt / 60);
+                            avgC += cplex.getValue(v[q_idx][r_idx][s_idx][b]) * (tts[q_idx][r_idx][s_idx][b]) * 60;
                             total_v += cplex.getValue(v[q_idx][r_idx][s_idx][b]);
                             
                             //System.out.println(q+" "+r+" "+s+" : "+b+" - "+ cplex.getValue(v[q_idx][r_idx][s_idx][b]));

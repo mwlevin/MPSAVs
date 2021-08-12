@@ -13,9 +13,9 @@ public class SAEV extends SAV
 {
     // battery is measured in miles
     private double battery;
-    public static double max_battery = 50; //263 * 0.8; // tesla range
+    public static double max_battery = 100; //263 * 0.8; // tesla range
     
-    public static double charge_rate = 800; // 200 miles per 15 min
+    public static double charge_rate = 200; // 200 miles per 15 min
     
     public SAEV(Node loc)
     {
