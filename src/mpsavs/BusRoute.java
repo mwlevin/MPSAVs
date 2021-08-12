@@ -26,25 +26,31 @@ public class BusRoute extends ArrayList<Node>
         return id;
     }
     
+    
     public Node closestStop(CNode c)
     {
         Node o = c.getOrigin();
         Node d = c.getDest();
         
-        if(!contains(d))
-        {
-            return null;
-        }
+
         
         Node best = null;
         int min = Integer.MAX_VALUE;
+        int last_walkable_node = -1;
         
-        for(Node n : this)
+        for(int i = 0; i < size(); i++)
         {
-            if(n == d)
+            Node n = get(i);
+            
+            if(Network.active.getLength(n, d) < 0.25)
             {
-                break;
+                last_walkable_node = i;
             }
+        }
+        
+        for(int i = 0; i < last_walkable_node; i++)
+        {
+            Node n = get(i);
             
             int temp = Network.active.getTT(o, n);
             if(temp < min)
@@ -59,8 +65,23 @@ public class BusRoute extends ArrayList<Node>
     
     public boolean isServed(CNode c)
     {
-        int o_idx = indexOf(c.getOrigin());
-        int d_idx = indexOf(c.getDest());
+        int o_idx = -1;
+        int d_idx = -1;
+        
+        for(int i = 0; i < size(); i++)
+        {
+            Node n = get(i);
+            if(o_idx == -1 && Network.active.getLength(n, c.getOrigin()) < 0.25)
+            {
+                o_idx = i;
+            }
+            else if(Network.active.getLength(n, c.getDest()) < 0.25)
+            {
+                d_idx = i;
+            }
+        }
+        //int o_idx = indexOf(c.getOrigin());
+        //int d_idx = indexOf(c.getDest());
         
         return o_idx >= 0 && o_idx < d_idx;
     }

@@ -41,7 +41,7 @@ public class Network
     
     public static boolean EVs = false;
     public static boolean RIDESHARING = false;
-    public static boolean BUSES = true;
+    public static boolean BUSES = false;
     
     public double V = 1;
     
