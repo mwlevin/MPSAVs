@@ -60,12 +60,12 @@ public class Network
     public static int t;
     
     public static double dt = 30.0/3600;
-    public static int T_hr = 8;
+    public static int T_hr =24;
     public static int T = (int)Math.round(1.0/dt * T_hr);
     
     private int[] holtimes;
     
-    public static Random rand = new Random(13);
+    public static Random rand = new Random(14);
     
     private double total_demand;
     private String name;
