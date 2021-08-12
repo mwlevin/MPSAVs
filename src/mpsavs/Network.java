@@ -35,17 +35,17 @@ public class Network
     
     public int total_customers;
     
-    public static final int SAV_CAPACITY = 2;
+    public static final int SAV_CAPACITY = 1;
     
     public static Network active = null;
     
-    public static boolean EVs = true;
+    public static boolean EVs = false;
     public static boolean RIDESHARING = false;
-    public static boolean BUSES = false;
+    public static boolean BUSES = true;
     
     public double V = 1;
     
-    private RunningAvg avgC;
+    private RunningAvg avgC, ivtt, emptyTT;
     private List<Node> nodes;
     private Set<Link> links;
     private Set<CNode> cnodes;
@@ -60,7 +60,7 @@ public class Network
     public static int t;
     
     public static double dt = 30.0/3600;
-    public static int T_hr = 24;
+    public static int T_hr = 8;
     public static int T = (int)Math.round(1.0/dt * T_hr);
     
     private int[] holtimes;
@@ -358,6 +358,8 @@ public class Network
         holtimes = new int[T];
         
         avgC = new RunningAvg();
+        ivtt = new RunningAvg();
+        emptyTT = new RunningAvg();
         
         total_customers = 0;
         
@@ -984,7 +986,27 @@ public class Network
         IloNumVar[][][] v = new IloNumVar[nodes.size()][nodes.size()][nodes.size()];
         
         
-            
+        
+        RunningAvg ivtt = new RunningAvg();
+        
+        for(CNode c : cnodes)
+        {
+            if(BUSES)
+            {
+                if(c.isBusServed())
+                {
+                    continue;
+                }
+                ivtt.add(getTT(c.getOrigin(), c.getBusDropoff()) / (1.0/dt/60) , c.getLambda() );
+            }
+            else
+            {
+                ivtt.add(getTT(c.getOrigin(), c.getDest()) / (1.0/dt/60) , c.getLambda() );
+            }
+        }
+        
+        System.out.println("Predicted ivtt: "+ivtt.getAverage());
+        
         for(int r_idx = 0; r_idx < nodes.size(); r_idx++)
         {
             for(int s_idx = 0; s_idx < nodes.size(); s_idx++)
@@ -1037,13 +1059,12 @@ public class Network
         
         System.out.println(count+" variables");
         
-        // demand constraint
+        double[][] demandMat = new double[nodes.size()][nodes.size()];
+        
         for(CNode c : cnodes)
         {
-            IloLinearNumExpr lhs = cplex.linearNumExpr();
-            
-            Node s = null;
-            
+            Node dest = null;
+
             if(BUSES)
             {
                 if(c.isBusServed())
@@ -1052,35 +1073,42 @@ public class Network
                 }
                 else
                 {
-                    s = c.getBusDropoff();
+                    dest = c.getBusDropoff();
                 }
-                
-                /*
-                if(s == c.getOrigin())
-                {
-                    System.out.println(c.getOrigin()+" "+c.getDest()+" "+s+" "+isBusServed(c));
-                    
-                    for(BusRoute b : buses)
-                    {
-                        System.out.println("\t"+b.getId()+" "+b.isServed(c)+" "+b);
-                    }
-                }
-                */
+
             }
             else
             {
-                s = c.getDest();
+                dest = c.getDest();
             }
-            
-            
-            
-            for(int q = 0; q < v.length; q++)
-            {
-                lhs.addTerm(1, v[q][c.getOrigin().getIdx()][s.getIdx()]);
-            }
-            
-            cplex.addGe(lhs, cplex.prod(c.getLambda(), alpha));
+
+
+            demandMat[c.getOrigin().getIdx()][dest.getIdx()] += c.getLambda();
         }
+        
+        // demand constraint
+        for(Node r : nodes)
+        {
+            for(Node s : nodes)
+            {
+                if(r == s || demandMat[r.getIdx()][s.getIdx()] == 0)
+                {
+                    continue;
+                }
+                
+                IloLinearNumExpr lhs = cplex.linearNumExpr();
+
+
+                for(int q = 0; q < v.length; q++)
+                {
+                    lhs.addTerm(1, v[q][r.getIdx()][s.getIdx()]);
+                }
+
+                cplex.addGe(lhs, cplex.prod(demandMat[r.getIdx()][s.getIdx()], alpha));
+              
+            }
+        }
+        
         
         // travel time constraint
         IloLinearNumExpr lhs = cplex.linearNumExpr();
@@ -1183,11 +1211,25 @@ public class Network
         this.avgC.add(avgC/totalV);
         
         double output = 0;
+        double bus_only = 0;
+        double sav_cust = 0;
         
         for(CNode n : cnodes)
         {
             output += n.getLambda() * alpha_;
+            
+            if(n.isBusServed())
+            {
+                bus_only += n.getLambda() * alpha_;
+            }
+            else
+            {
+                sav_cust += n.getLambda() * alpha_;
+            }
         }
+        
+        System.out.println("bus served: "+bus_only + " "+(100.0*bus_only/output)+"%");
+        System.out.println("sav customers: "+sav_cust+" "+(100.0*sav_cust/output)+"%");
         
         
         
@@ -1659,6 +1701,24 @@ public class Network
         
         return output;
     }
+    
+    public double getAvgIVTT()
+    {
+        return ivtt.getAverage();
+    }
+    
+    public int getBusServed()
+    {
+        int output = 0;
+        for(CNode n : cnodes)
+        {
+            if(n.isBusServed())
+            {
+                output += n.getPickupDelay().getCount();
+            }
+        }
+        return output;
+    }
     public int getNumWaiting()
     {
         int output = 0;
@@ -1743,8 +1803,9 @@ public class Network
                 +" :"+sav.getDelay(path)+" "+path.getTT());
         }
         
-        avgC.add( (sav.getDelay(path)+path.getTT()) * (1.0/dt / 60));
-        emptyTT += sav.getDelay(path);
+        avgC.add( (sav.getDelay(path)+path.getTT()) / (1.0/dt / 60));
+        emptyTT.add(sav.getDelay(path) / (1.0/dt / 60));
+        ivtt.add(path.getTT() / (1.0/dt / 60) );
         
         sav.dispatch(path);
         
@@ -1771,7 +1832,10 @@ public class Network
         return total_demand;
     }
     
-    public double emptyTT;
+    public double getEmptyTT()
+    {
+        return emptyTT.getAverage();
+    }
     
     public Map<Integer, Link> createLinkIdsMap()
     {

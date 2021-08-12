@@ -77,17 +77,21 @@ public class CNode
     public void busPickup()
     {
         waiting.remove(0);
+        pickupDelay.add(0);
+        dispatchDelay.add(0);
+        
+        
     }
     
     public void pickup(SAV sav, Path path)
     {
         int waitingForPickup = sav.getDelay(path) + path.getPickupDelay(this);
         
-        pickupDelay.add(waitingForPickup);
+        pickupDelay.add(waitingForPickup / (1.0/Network.dt / 60));
         
         int waitingForDispatch = waiting.remove(0);
         
-        dispatchDelay.add(waitingForDispatch);
+        dispatchDelay.add(waitingForDispatch / (1.0/Network.dt / 60) );
     }
     
     public String toString()

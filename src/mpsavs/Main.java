@@ -66,23 +66,36 @@ public class Main {
         
         //System.out.println(test.lineSearch());
         
-        //Network network = new Network("SiouxFalls", 480.0/28835, 100);
+        Network network = new Network("SiouxFalls", 9000.0/28835, 400);
         
-        Network network = new Network("coacongress", 480.0/62836, 100);
+        //Network network = new Network("coacongress", 480.0/62836, 100);
         
         //network.test();
         
         //Network network = new Network("test", 45, 100);
         
         
-        //network.simulate();
+        network.simulate();
         
-        //System.out.println(network.getAvgDispatchDelay());
-        //System.out.println(network.getAvgPickupDelay());
+        
+        System.out.println("dispatch delay: "+network.getAvgDispatchDelay());
+        System.out.println("pickup delay: "+network.getAvgPickupDelay());
+        System.out.println("bus served: "+((double)network.getBusServed() / Network.T_hr));
+        System.out.println("avg IVTT: "+network.getAvgIVTT());
+        System.out.println("empty TT: "+network.getEmptyTT());
+        System.out.println("avg C: "+network.getAvgC());
+        
+        System.out.println("____________________________");
+        
+        
+        System.out.println(network.stableRegionMaxServed());
+        
+        
+        
         
         //network.createRSPaths();
         
-        System.out.println(network.stableRegionMaxServed()+" "+network.getTotalDemand());
+        
     
         
         
