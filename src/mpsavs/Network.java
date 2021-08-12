@@ -35,11 +35,11 @@ public class Network
     
     public int total_customers;
     
-    public static final int SAV_CAPACITY = 1;
+    public static final int SAV_CAPACITY = 2;
     
     public static Network active = null;
     
-    public static boolean EVs = true;
+    public static boolean EVs = false;
     public static boolean RIDESHARING = false;
     public static boolean BUSES = false;
     
@@ -109,6 +109,8 @@ public class Network
         }
         filein.close();
         
+        System.out.println("recharging nodes: "+enodes);
+        
         Map<Integer, Node> nodemap = createNodeIdsMap();
         
         filein = new Scanner(new File("data/"+name+"/network/links.txt"));
@@ -125,8 +127,10 @@ public class Network
             
             filein.nextLine();
             
-            links.add(new Link(id, nodemap.get(source_id), nodemap.get(dest_id), 
-                    length, (int)Math.ceil(length/speed / dt)));
+            Link link = new Link(id, nodemap.get(source_id), nodemap.get(dest_id), length, (int)Math.ceil(length/speed / dt));
+            links.add(link);
+            
+            //System.out.println(id+" "+link.getTT());
         }
         filein.close();
         
@@ -455,17 +459,42 @@ public class Network
         return output;
     }
     
+    public static final double RS_EXTRA = 0.2; // 20% extra
+    
     public void loadRSPaths(Map<Node, Map<Path, IloNumVar>> gamma) throws IOException
     {
-        Map<Integer, Node> nodesmap = createNodeIdsMap();
+        Map<File, Integer> files = new HashMap<File, Integer>();
         
         for(int i = 1; i <= SAV_CAPACITY; i++)
         {
-            Scanner filein = new Scanner(new File("data/"+name+"/rs_paths_"+i+".txt"));
+            if(i == 2)
+            {
+                files.put(new File("data/"+name+"/rs_paths_"+i+"_part1.txt"), 2);
+                files.put(new File("data/"+name+"/rs_paths_"+i+"_part2.txt"), 2);
+            }
+            else
+            {
+                files.put(new File("data/"+name+"/rs_paths_"+i+".txt"), 1);
+            }
+        }
+        
+        int count = 0;
+        int count_valid = 0;
+        
+        Map<Integer, Node> nodesmap = createNodeIdsMap();
+        
+        for(File file : files.keySet())
+        {
+            int i = files.get(file);
+            
+            Scanner filein = new Scanner(file);
             
             while(filein.hasNextLine())
             {
-                Scanner chopper = new Scanner(filein.nextLine());
+                String line = filein.nextLine();
+                
+                
+                Scanner chopper = new Scanner(line);
                 
                 
                 Node q = nodesmap.get(chopper.nextInt());
@@ -482,6 +511,34 @@ public class Network
                     temp.add(nodesmap.get(chopper.nextInt()));
                 }
                 
+                count++;
+                
+                // validate temp
+                boolean valid = true;
+                
+                for(CNode c : temp.getServed())
+                {
+                    int r = temp.indexOf(c.getOrigin());
+                    int s = temp.indexOf(c.getDest());
+                    
+                    if(r == s-1)
+                    {
+                        valid = false;
+                        break;
+                    }
+                    
+                    int tt = temp.getTT(c.getOrigin(), c.getDest());
+                    
+                    if(tt > (1 + RS_EXTRA) * getTT(c.getOrigin(), c.getDest()))
+                    {
+                        valid = false;
+                        break;
+                    }
+                    
+                }
+                
+                count_valid++;
+                
                 if(!gamma.containsKey(q))
                 {
                     gamma.put(q, new HashMap<>());
@@ -489,6 +546,8 @@ public class Network
                 
                 gamma.get(q).put(temp, null);
             }
+            
+            filein.close();
         }
     }
     
@@ -743,7 +802,7 @@ public class Network
                     continue;
                 }
                 
-                if(i != j)
+                if(i != j && (i ==0 || j == f.length-1 || j != i-1))
                 {
                     f[i][j] = cplex.intVar(0, 1);
                 }
@@ -783,7 +842,7 @@ public class Network
         for(int c = 0; c < customers.length; c++)
         {
             lhs.addTerm(1, f[0][1 + c*2]);
-
+            
         }
         
         cplex.addEq(lhs, 1);
@@ -792,6 +851,7 @@ public class Network
         
         for(int c = 0; c < customers.length; c++)
         {
+            
             lhs.addTerm(1, f[1 + c*2+1][nodes.length-1]);
 
         }
@@ -813,7 +873,10 @@ public class Network
                     continue;
                 }
                 
-                lhs.addTerm(1, f[i][c*2+1]);
+                if(f[i][c*2+1] != null)
+                {
+                    lhs.addTerm(1, f[i][c*2+1]);
+                }
             }
             cplex.addEq(lhs, 1);
             
@@ -827,7 +890,10 @@ public class Network
                     continue;
                 }
                 
-                lhs.addTerm(1, f[c*2+1][i]);
+                if(f[c*2+1][i] != null)
+                {
+                    lhs.addTerm(1, f[c*2+1][i]);
+                }
             }
             
             cplex.addEq(lhs, 1);
@@ -841,7 +907,10 @@ public class Network
                     continue;
                 }
                 
-                lhs.addTerm(1, f[i][1+c*2+1]);
+                if(f[i][1+c*2+1] != null)
+                {
+                    lhs.addTerm(1, f[i][1+c*2+1]);
+                }
             }
             
             cplex.addEq(lhs, 1);
@@ -855,7 +924,10 @@ public class Network
                     continue;
                 }
                 
-                lhs.addTerm(1, f[1+c*2+1][i]);
+                if(f[1+c*2+1][i] != null)
+                {
+                    lhs.addTerm(1, f[1+c*2+1][i]);
+                }
             }
             
             cplex.addEq(lhs, 1);
@@ -881,7 +953,7 @@ public class Network
         
         //System.out.println(cplex.getObjValue());
         
-        /*
+        
         for(int j = 0; j < nodes.length; j++)
         {
             System.out.print("\t"+nodes[j]);
@@ -906,7 +978,7 @@ public class Network
             
             System.out.println();
         }
-        */
+        
 
         Path output = new Path();
         
@@ -914,6 +986,8 @@ public class Network
         
         while(curr != nodes.length-1)
         {
+            
+            
             inner: for(int j = 0; j < nodes.length; j++)
             {
                 if(f[curr][j] != null && cplex.getValue(f[curr][j]) == 1)
@@ -1002,6 +1076,8 @@ public class Network
             else
             {
                 ivtt.add(getTT(c.getOrigin(), c.getDest()) / (1.0/dt/60) , c.getLambda() );
+                
+                //System.out.println(c.getOrigin()+" "+c.getDest()+" "+( getTT(c.getOrigin(), c.getDest()) / (1.0/dt/60)+" "+c.getLambda()));
             }
         }
         
@@ -1449,6 +1525,7 @@ public class Network
         double alpha_ = cplex.getValue(alpha);
         
         double emptyTime = 0;
+        double chargingTime = 0;
         double avgC = 0;
         double total_v = 0;
         
@@ -1463,6 +1540,8 @@ public class Network
                     Node r = nodes.get(r_idx);
                     Node s = nodes.get(s_idx);
                         
+                    
+                    
                     for(int b = 0; b < b_db; b++)
                     {
                         if(v[q_idx][r_idx][s_idx][b] != null)
@@ -1472,6 +1551,7 @@ public class Network
                             double required = getLength(s, SAEV.getNearestCharger(s));
                             
                             int tt = 0;
+                            int rechargeTime = 0;
                             
                             if((double)(b+1)/b_db * SAEV.max_battery - consumed < required)
                             {
@@ -1480,7 +1560,7 @@ public class Network
                                 double projected = (double)(b+1)/b_db * SAEV.max_battery - getLength(q, closestCharger);
                                 
                                 //System.out.println(((double)(b+1)/b_db * SAEV.max_battery)+" "+getLength(q, closestCharger));
-                                int rechargeTime = (int)Math.ceil( (SAEV.max_battery - projected)/SAEV.charge_rate / dt);
+                                rechargeTime = (int)Math.ceil( (SAEV.max_battery - projected)/SAEV.charge_rate / dt);
                                 
                                 
                                 
@@ -1501,6 +1581,7 @@ public class Network
                             
                             
                             emptyTime += cplex.getValue(v[q_idx][r_idx][s_idx][b]) * tt / (1.0/dt / 60);
+                            chargingTime += cplex.getValue(v[q_idx][r_idx][s_idx][b]) * rechargeTime / (1.0/dt / 60);
                             avgC += cplex.getValue(v[q_idx][r_idx][s_idx][b]) * (tts[q_idx][r_idx][s_idx][b]) * 60;
                             total_v += cplex.getValue(v[q_idx][r_idx][s_idx][b]);
                             
@@ -1513,6 +1594,7 @@ public class Network
         }
         
         System.out.println("predicted empty time: "+emptyTime / total_v);
+        System.out.println("predicted charging time: "+chargingTime / total_v);
         System.out.println("avg C: "+avgC / total_v);
         
         this.avgC = new RunningAvg();
@@ -1774,6 +1856,27 @@ public class Network
         return output.getAverage();
     }
     
+    public Node findNode(int i)
+    {
+        for(Node n : nodes)
+        {
+            if(n.getId() == i)
+            {
+                return n;
+            }
+        }
+        
+        return null;
+    }
+    
+    
+    public CNode findCustomer(int r, int s)
+    {
+        Node i = findNode(r);
+        Node j = findNode(s);
+        
+        return i.getCNode(j);
+    }
     public double getAvgC()
     {
         return avgC.getAverage();

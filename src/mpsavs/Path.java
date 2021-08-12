@@ -34,6 +34,26 @@ public class Path extends ArrayList<Node>
         this.served = served;
     }
     
+    public int getTT(Node r, Node s)
+    {
+        int r_idx = indexOf(r);
+        int s_idx = indexOf(s);
+        
+        if(r_idx == -1 || s_idx == -1)
+        {
+            System.out.println(toString()+" "+r+" "+s);
+        }
+        
+        int output = 0;
+        
+        for(int i = r_idx; i < s_idx; i++)
+        {
+            output += Network.active.getTT(get(i), get(i+1));
+        }
+        
+        return output;
+    }
+    
     public void add(CNode c)
     {
         served.add(c);
