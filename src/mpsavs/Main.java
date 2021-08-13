@@ -11,6 +11,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Scanner;
 import static mpsavs.Network.dt;
@@ -66,15 +67,15 @@ public class Main {
         
         //System.out.println(test.lineSearch());
         
-        Network network = new Network("SiouxFalls", 9000.0/28835, 400);
-        
+        Network network = new Network("SiouxFalls", 300.0/28835, 100);
+        //network.loadRSPaths(new HashMap<>() );
         //Network network = new Network("coacongress", 480.0/62836, 100);
         
         //network.test();
         
         //Network network = new Network("test", 45, 100);
         
-        
+        /*
         network.simulate();
         
         
@@ -86,15 +87,15 @@ public class Main {
         System.out.println("avg C: "+network.getAvgC());
         
         System.out.println("____________________________");
+        */
         
-        
-        System.out.println(network.stableRegionMaxServed());
+        //System.out.println(network.stableRegionMaxServed());
         
         
         
         
         //network.createRSPaths();
-        
+        network.createSRPath(network.findNode(1), new CNode[]{network.findCustomer(10, 1), network.findCustomer(15, 20)});
         
     
         

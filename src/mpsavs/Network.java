@@ -60,7 +60,7 @@ public class Network
     public static int t;
     
     public static double dt = 30.0/3600;
-    public static int T_hr =24;
+    public static int T_hr =12;
     public static int T = (int)Math.round(1.0/dt * T_hr);
     
     private int[] holtimes;
@@ -514,27 +514,9 @@ public class Network
                 count++;
                 
                 // validate temp
-                boolean valid = true;
-                
-                for(CNode c : temp.getServed())
+                if(!isValid(temp))
                 {
-                    int r = temp.indexOf(c.getOrigin());
-                    int s = temp.indexOf(c.getDest());
-                    
-                    if(r == s-1)
-                    {
-                        valid = false;
-                        break;
-                    }
-                    
-                    int tt = temp.getTT(c.getOrigin(), c.getDest());
-                    
-                    if(tt > (1 + RS_EXTRA) * getTT(c.getOrigin(), c.getDest()))
-                    {
-                        valid = false;
-                        break;
-                    }
-                    
+                    continue;
                 }
                 
                 count_valid++;
@@ -549,6 +531,34 @@ public class Network
             
             filein.close();
         }
+    }
+    
+    public boolean isValid(Path temp)
+    {
+        boolean valid = true;
+
+        for(CNode c : temp.getServed())
+        {
+            int r = temp.indexOf(c.getOrigin());
+            int s = temp.indexOf(c.getDest());
+
+            if(r == s-1)
+            {
+                valid = false;
+                break;
+            }
+
+            int tt = temp.getTT(c.getOrigin(), c.getDest());
+
+            if(tt > (1 + RS_EXTRA) * getTT(c.getOrigin(), c.getDest()))
+            {
+                valid = false;
+                break;
+            }
+
+        }
+        
+        return valid;
     }
     
     public void createRSPaths() throws IloException, IOException
@@ -587,8 +597,11 @@ public class Network
                             
                             Path path = createSRPath(q, new CNode[]{c1, c2});
                             
-                            fileout.println(printPath(path));
-                            count++;
+                            if(isValid(path))
+                            {
+                                fileout.println(printPath(path));
+                                count++;
+                            }
                         }
                     }
                 }
@@ -614,8 +627,13 @@ public class Network
                             if(c1 != c2 && c2 != c3 && c1 != c3)
                             {
                                 Path path = createSRPath(q, new CNode[]{c1, c2, c3});
-                                fileout.println(printPath(path));
-                                count++;
+                                
+                                if(isValid(path))
+                                {
+                                    fileout.println(printPath(path));
+                                    count++;
+                                }
+                                
                             }
                         }
                     }
@@ -953,7 +971,7 @@ public class Network
         
         //System.out.println(cplex.getObjValue());
         
-        
+        /*
         for(int j = 0; j < nodes.length; j++)
         {
             System.out.print("\t"+nodes[j]);
@@ -978,7 +996,7 @@ public class Network
             
             System.out.println();
         }
-        
+        */
 
         Path output = new Path();
         
