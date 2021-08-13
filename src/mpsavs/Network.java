@@ -102,14 +102,17 @@ public class Network
             
             filein.nextLine();
             
-            if(type == 200)
+            if(EVs && type == 200)
             {
                 enodes.add(temp);
             }
         }
         filein.close();
         
-        System.out.println("recharging nodes: "+enodes);
+        if(EVs)
+        {
+            System.out.println("recharging nodes: "+enodes);
+        }
         
         Map<Integer, Node> nodemap = createNodeIdsMap();
         
@@ -467,15 +470,8 @@ public class Network
         
         for(int i = 1; i <= SAV_CAPACITY; i++)
         {
-            if(i == 2)
-            {
-                files.put(new File("data/"+name+"/rs_paths_"+i+"_part1.txt"), 2);
-                files.put(new File("data/"+name+"/rs_paths_"+i+"_part2.txt"), 2);
-            }
-            else
-            {
-                files.put(new File("data/"+name+"/rs_paths_"+i+".txt"), 1);
-            }
+
+            files.put(new File("data/"+name+"/rs_paths_"+i+".txt"), 1);
         }
         
         int count = 0;
