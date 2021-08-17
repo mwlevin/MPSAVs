@@ -16,6 +16,9 @@ import java.util.Random;
  */
 public class MetaSimulation 
 {
+    public static double DETECT_EPSILON = 0.01;
+    
+    
     private int fleetsize;
     private String name;
     
@@ -115,11 +118,11 @@ public class MetaSimulation
         for(int i = 0; i < diff.length; i++)
         {
             diff[i] = (filtered[filtered.length-1] - filtered[filtered.length-1-(i+1)*60])/( (i+1)*60) 
-                    / network.getTotalDemand() / Network.dt;
+                    / network.getTotalNonBusDemand() / Network.dt;
   
             System.out.println("diff "+((i+1)*60)+" = "+diff[i]);
             
-            if(diff[i] < 0.1)
+            if(diff[i] < DETECT_EPSILON)
             {
                 count++;
             }
@@ -127,7 +130,7 @@ public class MetaSimulation
         
         
         
-        return diff[diff.length-1] < 0.1 || count >= diff.length/2;
+        return diff[diff.length-1] < DETECT_EPSILON || count >= diff.length/2;
     }
     
     public double[] getLowPassFilter(double[] avg)

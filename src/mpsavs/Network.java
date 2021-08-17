@@ -312,6 +312,29 @@ public class Network
         
     }
     
+    private double total_nonbus_demand = 0;
+    
+    public double getTotalNonBusDemand()
+    {
+        if(total_nonbus_demand == 0)
+        {
+
+            
+            for(CNode c : cnodes)
+            {
+
+                
+                if(!BUSES || !c.isBusServed())
+                {
+                    total_nonbus_demand += c.getLambda() ;
+                }
+            }
+
+        }
+        
+        return total_nonbus_demand;
+    }
+    
     public boolean isBusServed(CNode c)
     {
         for(BusRoute b : buses)
