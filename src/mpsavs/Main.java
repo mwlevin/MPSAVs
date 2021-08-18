@@ -56,8 +56,8 @@ public class Main {
         
         */
         
-        //stableRegionTest("SiouxFalls", 100, 500, 25);
-        //System.exit(0);
+        stableRegionTest("SiouxFalls", 100, 500, 25);
+        System.exit(0);
         
         // TODO code application logic here
         
@@ -108,7 +108,7 @@ public class Main {
     public static void stableRegionTest(String name, int min, int max, int inc) throws IOException, IloException
     {
         PrintStream fileout = new PrintStream(new FileOutputStream(new File("sr_"+name+""
-                + (Network.EVs? "EVs":"") + ".txt"), true), true);
+                + (Network.EVs? "_EVs":"") + (Network.BUSES? "_BUS":"") + ".txt"), true), true);
         
         fileout.println("Fleet size\tSim stable demand\tSim avgC\tCalc stable demand\tCalc avgC");
         for(int i = min; i <= max; i += inc)
