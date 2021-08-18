@@ -16,7 +16,7 @@ import java.util.Random;
  */
 public class MetaSimulation 
 {
-    public static double DETECT_EPSILON = 0.01;
+    public static double DETECT_EPSILON = 0.1;
     
     
     private int fleetsize;
