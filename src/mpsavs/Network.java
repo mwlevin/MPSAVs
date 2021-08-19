@@ -39,8 +39,8 @@ public class Network
     
     public static Network active = null;
     
-    public static boolean EVs = false;
-    public static boolean RIDESHARING = true;
+    public static boolean EVs = true;
+    public static boolean RIDESHARING = false;
     public static boolean BUSES = false;
     
     public double V = 1;
@@ -327,7 +327,7 @@ public class Network
                 int o2 = chopper.nextInt();
                 int d2 = chopper.nextInt();
                 
-                Node q = nodemap.get(start);
+
                 CNode c1 = nodemap.get(o1).getCNode(nodemap.get(d1));
                 CNode c2 = nodemap.get(o2).getCNode(nodemap.get(d2));
                 
@@ -569,7 +569,7 @@ public class Network
                 Scanner chopper = new Scanner(line);
                 
                 
-                Node q = nodesmap.get(chopper.nextInt());
+                chopper.nextInt();
                 
                 Path temp = new Path();
                 
@@ -593,12 +593,15 @@ public class Network
                 
                 count_valid++;
                 
-                if(!gamma.containsKey(q))
+                for(Node q : nodes)
                 {
-                    gamma.put(q, new HashMap<>());
+                    if(!gamma.containsKey(q))
+                    {
+                        gamma.put(q, new HashMap<>());
+                    }
+
+                    gamma.get(q).put(temp, null);
                 }
-                
-                gamma.get(q).put(temp, null);
             }
             
             filein.close();
@@ -645,7 +648,7 @@ public class Network
             
             for(CNode c : cnodes)
             {
-                Path path = createSRPath(q, new CNode[]{c});
+                Path path = createSRPath(new CNode[]{c});
                 fileout.println(printPath(path));
                 
                 count++;
@@ -658,7 +661,7 @@ public class Network
         {
             fileout = new PrintStream(new FileOutputStream("data/"+name+"/rs_paths_2.txt"), true);
             
-            for(Node q : nodes)
+            //for(Node q : nodes)
             {
                 for(CNode c1 : cnodes)
                 {
@@ -667,11 +670,11 @@ public class Network
                         if(c1 != c2)
                         {
                             
-                            Path path = createSRPath(q, new CNode[]{c1, c2});
+                            Path path = createSRPath(new CNode[]{c1, c2});
                             
                             if(isValid(path))
                             {
-                                fileout.println(printPath(path));
+                                fileout.println("0\t"+printPath(path));
                                 count++;
                             }
                         }
@@ -698,7 +701,7 @@ public class Network
                         {
                             if(c1 != c2 && c2 != c3 && c1 != c3)
                             {
-                                Path path = createSRPath(q, new CNode[]{c1, c2, c3});
+                                Path path = createSRPath(new CNode[]{c1, c2, c3});
                                 
                                 if(isValid(path))
                                 {
@@ -854,14 +857,13 @@ public class Network
         return output;
     }
     
-    public Path createSRPath(Node q, CNode[] customers) throws IloException
+    public Path createSRPath(CNode[] customers) throws IloException
     {
         //System.out.println("Creating path "+q+"- "+Arrays.toString(customers));
         
         if(customers.length == 1)
         {
             Path output = new Path();
-            output.add(q);
             output.add(customers[0].getOrigin());
             output.add(customers[0].getDest());
             
@@ -882,7 +884,7 @@ public class Network
         Node dummy = new Node(0, 0);
         
         Node[] nodes = new Node[1 + customers.length*2 + 1];
-        nodes[0] = q;
+        nodes[0] = dummy;
         nodes[nodes.length-1] = dummy;
         
         for(int i = 0; i < customers.length; i++)
@@ -1054,7 +1056,7 @@ public class Network
         
         // (39a)
         lhs = cplex.linearNumExpr();
-        for(int i = 0; i < nodes.length; i++)
+        for(int i = 1; i < nodes.length; i++)
         {
             for(int j = 1; j < nodes.length-1; j++)
             {
@@ -1110,7 +1112,11 @@ public class Network
             {
                 if(f[curr][j] != null && cplex.getValue(f[curr][j]) == 1)
                 {
-                    output.add(nodes[curr]);
+                    if(nodes[curr].getId() != 0)
+                    {
+                        output.add(nodes[curr]);
+                    }
+                    
                     curr = j;
                     break inner;
                 }
@@ -1156,7 +1162,7 @@ public class Network
         
         
         System.out.println(q+" "+c1+" "+c2);
-        createSRPath(q, new CNode[]{c1, c2});
+        System.out.println(createSRPath(new CNode[]{c1, c2}));
     }
     
     public double stableRegionMaxServed1() throws IloException
