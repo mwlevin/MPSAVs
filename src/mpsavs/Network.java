@@ -547,7 +547,7 @@ public class Network
         for(int i = 1; i <= SAV_CAPACITY; i++)
         {
 
-            files.put(new File("data/"+name+"/rs_paths_"+i+".txt"), 1);
+            files.put(new File("data/"+name+"/rs_paths_"+i+".txt"), i);
         }
         
         int count = 0;
@@ -739,6 +739,7 @@ public class Network
         {
             for(Path pi : gamma.get(q).keySet())
             {
+                
                 gamma.get(q).put(pi, cplex.numVar(0, Integer.MAX_VALUE));
             }
         }
