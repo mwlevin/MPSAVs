@@ -40,7 +40,7 @@ public class Network
     public static Network active = null;
     
     public static boolean EVs = false;
-    public static boolean RIDESHARING = false;
+    public static boolean RIDESHARING = true;
     public static boolean BUSES = false;
     
     public double V = 1;
@@ -51,6 +51,8 @@ public class Network
     private Set<CNode> cnodes;
     private List<Node> enodes;
     private List<BusRoute> buses;
+    
+    private Map<CNode, Map<CNode, Path>> rs_paths;
     
     private Set<SAV> savs;
     
@@ -309,6 +311,57 @@ public class Network
             links.remove(l);
         }
         
+        if(RIDESHARING)
+        {
+            rs_paths = new HashMap<>();
+            
+            filein = new Scanner(new File("data/"+name+"/rs_paths_2.txt"));
+            
+            while(filein.hasNext())
+            {
+                Scanner chopper = new Scanner(filein.nextLine());
+                
+                int start = chopper.nextInt();
+                int o1 = chopper.nextInt();
+                int d1 = chopper.nextInt();
+                int o2 = chopper.nextInt();
+                int d2 = chopper.nextInt();
+                
+                Node q = nodemap.get(start);
+                CNode c1 = nodemap.get(o1).getCNode(nodemap.get(d1));
+                CNode c2 = nodemap.get(o2).getCNode(nodemap.get(d2));
+                
+                Path path = new Path();
+                
+                while(chopper.hasNextInt())
+                {
+                    path.add(nodemap.get(chopper.nextInt()));
+                    
+                }
+                
+                path.add(c2);
+                path.add(c1);
+                
+                
+                
+                if(rs_paths.containsKey(c2))
+                {
+                    rs_paths.get(c2).put(c1, path);
+                }
+                else if(rs_paths.containsKey(c1))
+                {
+                    rs_paths.get(c1).put(c2, path);
+                }
+                else
+                {
+                    Map<CNode, Path> temp2 = new HashMap<>();
+                    temp2.put(c2, path);
+                    rs_paths.put(c1, temp2);
+                }
+                
+            }
+            filein.close();
+        }
         
     }
     
@@ -701,9 +754,11 @@ public class Network
         {
             for(Path pi : gamma.get(q).keySet())
             {
-                lhs.addTerm(gamma.get(q).get(pi), pi.getTT());
+                lhs.addTerm(gamma.get(q).get(pi), pi.getTT() * dt);
+                //System.out.println(pi.getTT() * dt);
             }
         }
+        
         
         cplex.addLe(lhs, savs.size());
         
@@ -756,9 +811,34 @@ public class Network
         
         cplex.addMaximize(alpha);
         
-        
+        cplex.solve();
         
         double output = 0;
+        
+        System.out.println("alpha="+cplex.getValue(alpha));
+        
+        double emptyTime = 0;
+        double avgC = 0;
+        double totalV = 0;
+        
+        for(Node q : gamma.keySet())
+        {
+            for(Path pi : gamma.get(q).keySet())
+            {
+                double g = cplex.getValue(gamma.get(q).get(pi));
+                
+                avgC += g * pi.getTT() / (1.0 / dt/60);
+                emptyTime += g * getTT(pi.get(0), pi.get(1)) / (1.0/dt/60);
+                totalV += g;
+                        
+            }
+        }
+        
+        avgC = avgC / totalV;
+        emptyTime = emptyTime / totalV;
+        
+        System.out.println("predicted empty time: "+emptyTime);
+        System.out.println("avgC: "+avgC);
 
         
         for(CNode n : cnodes)
@@ -1279,6 +1359,8 @@ public class Network
         
         cplex.solve();
         
+        System.out.println("alpha="+cplex.getValue(alpha));
+        
         double alpha_ = cplex.getValue(alpha);
         
         double emptyTime = 0;
@@ -1695,6 +1777,29 @@ public class Network
                 paths.add(new Path(c));
             }
                 
+        }
+        
+        if(RIDESHARING)
+        {
+            for(CNode c1 : nc)
+            {
+                for(CNode c2 : nc)
+                {
+                    if(c1 == c2)
+                    {
+                        continue;
+                    }
+                    
+                    if(rs_paths.containsKey(c1) && rs_paths.get(c1).containsKey(c2))
+                    {
+                        paths.add(rs_paths.get(c1).get(c2));
+                    }
+                    else if(rs_paths.containsKey(c2) && rs_paths.get(c2).containsKey(c1))
+                    {
+                        paths.add(rs_paths.get(c2).get(c1));
+                    }
+                }
+            }
         }
         
         IloIntVar[][] mat = new IloIntVar[paths.size()][nv.size()];
