@@ -31,6 +31,7 @@ import java.util.Set;
  */
 public class Network 
 {
+    
     public static final boolean PRINT = false;
     
     public int total_customers;
@@ -113,7 +114,7 @@ public class Network
         
         if(EVs)
         {
-            System.out.println("recharging nodes: "+enodes);
+            System.out.println("recharging nodes: "+enodes.size());
         }
         
         Map<Integer, Node> nodemap = createNodeIdsMap();
@@ -132,6 +133,7 @@ public class Network
             
             filein.nextLine();
             
+
             Link link = new Link(id, nodemap.get(source_id), nodemap.get(dest_id), length, (int)Math.ceil(length/speed / dt));
             links.add(link);
             
@@ -1452,11 +1454,12 @@ public class Network
         
         IloNumVar alpha = cplex.numVar(0, 1000);
         
-        int b_db = 10;
+        int b_db = 5;
         
         IloNumVar[][][][] v = new IloNumVar[nodes.size()][nodes.size()][nodes.size()][b_db];
         double[][][][] tts = new double[nodes.size()][nodes.size()][nodes.size()][b_db];
         
+        int count = 0;
             
         for(int r_idx = 0; r_idx < nodes.size(); r_idx++)
         {
@@ -1482,11 +1485,14 @@ public class Network
                         for(int b = 0; b < b_db; b++)
                         {
                             v[q_idx][r_idx][s_idx][b] = cplex.numVar(0, Integer.MAX_VALUE);
+                            count++;
                         }
                     }
                 }
             }
         }
+        
+        System.out.println(count+" variables");
         
         // demand constraint
         for(CNode c : cnodes)
@@ -1738,7 +1744,9 @@ public class Network
         return output;
     }
     
-    private IloCplex cplex;
+    private static IloCplex cplex;
+    
+    
     public void mdpp() throws IloException
     {
         if(cplex == null)
@@ -2161,5 +2169,51 @@ public class Network
                 }
             }
         }
+    }
+    
+    public static int createChargingStations(String name, double p) throws Exception
+    {
+        File old_nodes = new File("data/"+name+"/network/nodes_old.txt");
+        File nodes = new File("data/"+name+"/network/nodes.txt");
+        
+        if(!old_nodes.exists())
+        {
+            Scanner filein = new Scanner(nodes);
+            PrintStream fileout = new PrintStream(new FileOutputStream(old_nodes), true);
+            
+            while(filein.hasNextLine())
+            {
+                fileout.println(filein.nextLine());
+            }
+            
+            filein.close();
+            fileout.close();
+        }
+        
+        Scanner filein = new Scanner(old_nodes);
+        PrintStream fileout = new PrintStream(new FileOutputStream(nodes), true);
+        
+        fileout.println(filein.nextLine());
+        
+        int count = 0;
+        while(filein.hasNext())
+        {
+            int id = filein.nextInt();
+            int type = filein.nextInt();
+            double lng = filein.nextDouble();
+            double lat = filein.nextDouble();
+            double elev = filein.nextDouble();
+            
+            if(type == 100 && Math.random() < p)
+            {
+                count++;
+                type = 200;
+            }
+            
+            fileout.println(id+"\t"+type+"\t"+lng+"\t"+lat+"\t"+elev);
+        }
+        fileout.close();
+        
+        return count;
     }
 }
