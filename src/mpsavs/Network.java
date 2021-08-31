@@ -832,6 +832,7 @@ public class Network
         double emptyTime = 0;
         double avgC = 0;
         double totalV = 0;
+        double ivtt = 0;
         
         for(Node q : gamma.keySet())
         {
@@ -842,12 +843,23 @@ public class Network
                 avgC += g * pi.getTT() / (1.0 / dt/60);
                 emptyTime += g * getTT(pi.get(0), pi.get(1)) / (1.0/dt/60);
                 totalV += g;
+                ivtt += pi.getTT() - pi.getTT(pi.get(0), pi.get(1));
                         
             }
         }
         
+        ivtt = ivtt/totalV;
         avgC = avgC / totalV;
         emptyTime = emptyTime / totalV;
+        
+        this.ivtt = new RunningAvg();
+        this.ivtt.add(ivtt);
+        this.avgC = new RunningAvg();
+        this.avgC.add(avgC);
+        this.emptyTT = new RunningAvg();
+        this.emptyTT.add(emptyTime);
+        this.chargingTime = new RunningAvg();
+        this.chargingTime.add(0);
         
         System.out.println("predicted empty time: "+emptyTime);
         System.out.println("avgC: "+avgC);
@@ -1193,7 +1205,7 @@ public class Network
         
         
         
-        RunningAvg ivtt = new RunningAvg();
+        ivtt = new RunningAvg();
         
         for(CNode c : cnodes)
         {
@@ -1420,6 +1432,11 @@ public class Network
         this.avgC = new RunningAvg();
         this.avgC.add(avgC/totalV);
         
+        this.emptyTT = new RunningAvg();
+        this.emptyTT.add(emptyTime / totalV);
+        this.chargingTime = new RunningAvg();
+        this.chargingTime.add(0);
+        
         double output = 0;
         double bus_only = 0;
         double sav_cust = 0;
@@ -1459,7 +1476,7 @@ public class Network
         }
         
         
-        RunningAvg ivtt = new RunningAvg();
+        ivtt = new RunningAvg();
         
         for(CNode c : cnodes)
         {
@@ -1785,6 +1802,11 @@ public class Network
         
         this.avgC = new RunningAvg();
         this.avgC.add(avgC / total_v);
+        
+        this.emptyTT = new RunningAvg();
+        this.emptyTT.add(emptyTime / total_v);
+        this.chargingTime = new RunningAvg();
+        this.chargingTime.add(chargingTime / total_v);
         
         double output = 0;
         

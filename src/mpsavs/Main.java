@@ -76,7 +76,7 @@ public class Main {
         
         
         
-        Network network = new Network("SiouxFalls", 800.0/28835, 400);
+        Network network = new Network("SiouxFalls", 400.0/28835, 200);
 
         //network.loadRSPaths(new HashMap<>() );
         //Network network = new Network("coacongress", 480.0/62836, 100);
@@ -85,7 +85,7 @@ public class Main {
         
         //Network network = new Network("test", 45, 100);
         
-        /*
+        
         network.simulate();
         
         
@@ -99,8 +99,8 @@ public class Main {
         
         System.out.println("____________________________");
         
-         */
-        
+         
+       
         
         System.out.println(network.stableRegionMaxServed());
         
@@ -121,25 +121,30 @@ public class Main {
     public static void stableRegionTest(String name, int min, int max, int inc) throws IOException, IloException
     {
         PrintStream fileout = new PrintStream(new FileOutputStream(new File("sr_"+name+""
-                + (Network.EVs? "_EVs":"") + (Network.BUSES? "_BUS":"") + ".txt"), true), true);
+                + (Network.RIDESHARING? "_RS":"") + (Network.EVs? "_EVs":"") + (Network.BUSES? "_BUS":"") + ".txt"), true), true);
         
-        fileout.println("Fleet size\tSim stable demand\tSim avgC\tCalc stable demand\tCalc avgC");
+        fileout.println("Fleet size\tSim stable demand\tSim avgC\tSim IVTT\tSim empty time\tSim charging time\tCalc stable demand\tCalc avgC\t");
         for(int i = min; i <= max; i += inc)
         {
             Network network = new Network(name, 1, i);
             
             double sr2 = network.stableRegionMaxServed();
             double avgC2 = network.getAvgC();
+            double ivtt2 = network.getAvgIVTT();
+            double emptyTT2 = network.getEmptyTT();
+            double charging2 = network.getChargingTime();
             
             MetaSimulation test = new MetaSimulation(name, i);
             
             
             double sr = test.lineSearch(sr2);
             double avgC = Network.active.getAvgC();
+            double ivtt = network.getAvgIVTT();
+            double emptyTT = network.getEmptyTT();
+            double charging = network.getChargingTime();
             
             
-            
-            fileout.println(i+"\t"+sr+"\t"+avgC+"\t"+sr2+"\t"+avgC2);
+            fileout.println(i+"\t"+sr+"\t"+avgC+"\t"+ivtt+"\t"+emptyTT+"\t"+charging+"\t"+sr2+"\t"+avgC2+"\t"+ivtt2+"\t"+emptyTT2+"\t"+charging2);
         }
         fileout.close();
     }
