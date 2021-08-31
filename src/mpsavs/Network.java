@@ -31,6 +31,7 @@ import java.util.Set;
  */
 public class Network 
 {
+    
     public static final boolean PRINT = false;
     
     public int total_customers;
@@ -51,6 +52,8 @@ public class Network
     private Set<CNode> cnodes;
     private List<Node> enodes;
     private List<BusRoute> buses;
+    
+    private Map<CNode, Map<CNode, Path>> rs_paths;
     
     private Set<SAV> savs;
     
@@ -111,7 +114,7 @@ public class Network
         
         if(EVs)
         {
-            System.out.println("recharging nodes: "+enodes);
+            System.out.println("recharging nodes: "+enodes.size());
         }
         
         Map<Integer, Node> nodemap = createNodeIdsMap();
@@ -130,6 +133,7 @@ public class Network
             
             filein.nextLine();
             
+
             Link link = new Link(id, nodemap.get(source_id), nodemap.get(dest_id), length, (int)Math.ceil(length/speed / dt));
             links.add(link);
             
@@ -309,6 +313,57 @@ public class Network
             links.remove(l);
         }
         
+        if(RIDESHARING)
+        {
+            rs_paths = new HashMap<>();
+            
+            filein = new Scanner(new File("data/"+name+"/rs_paths_2.txt"));
+            
+            while(filein.hasNext())
+            {
+                Scanner chopper = new Scanner(filein.nextLine());
+                
+                int start = chopper.nextInt();
+                int o1 = chopper.nextInt();
+                int d1 = chopper.nextInt();
+                int o2 = chopper.nextInt();
+                int d2 = chopper.nextInt();
+                
+
+                CNode c1 = nodemap.get(o1).getCNode(nodemap.get(d1));
+                CNode c2 = nodemap.get(o2).getCNode(nodemap.get(d2));
+                
+                Path path = new Path();
+                
+                while(chopper.hasNextInt())
+                {
+                    path.add(nodemap.get(chopper.nextInt()));
+                    
+                }
+                
+                path.add(c2);
+                path.add(c1);
+                
+                
+                
+                if(rs_paths.containsKey(c2))
+                {
+                    rs_paths.get(c2).put(c1, path);
+                }
+                else if(rs_paths.containsKey(c1))
+                {
+                    rs_paths.get(c1).put(c2, path);
+                }
+                else
+                {
+                    Map<CNode, Path> temp2 = new HashMap<>();
+                    temp2.put(c2, path);
+                    rs_paths.put(c1, temp2);
+                }
+                
+            }
+            filein.close();
+        }
         
     }
     
@@ -500,7 +555,7 @@ public class Network
         for(int i = 1; i <= SAV_CAPACITY; i++)
         {
 
-            files.put(new File("data/"+name+"/rs_paths_"+i+".txt"), 1);
+            files.put(new File("data/"+name+"/rs_paths_"+i+".txt"), i);
         }
         
         int count = 0;
@@ -522,7 +577,7 @@ public class Network
                 Scanner chopper = new Scanner(line);
                 
                 
-                Node q = nodesmap.get(chopper.nextInt());
+                chopper.nextInt();
                 
                 Path temp = new Path();
                 
@@ -546,12 +601,15 @@ public class Network
                 
                 count_valid++;
                 
-                if(!gamma.containsKey(q))
+                for(Node q : nodes)
                 {
-                    gamma.put(q, new HashMap<>());
+                    if(!gamma.containsKey(q))
+                    {
+                        gamma.put(q, new HashMap<>());
+                    }
+
+                    gamma.get(q).put(temp, null);
                 }
-                
-                gamma.get(q).put(temp, null);
             }
             
             filein.close();
@@ -598,7 +656,7 @@ public class Network
             
             for(CNode c : cnodes)
             {
-                Path path = createSRPath(q, new CNode[]{c});
+                Path path = createSRPath(new CNode[]{c});
                 fileout.println(printPath(path));
                 
                 count++;
@@ -611,7 +669,7 @@ public class Network
         {
             fileout = new PrintStream(new FileOutputStream("data/"+name+"/rs_paths_2.txt"), true);
             
-            for(Node q : nodes)
+            //for(Node q : nodes)
             {
                 for(CNode c1 : cnodes)
                 {
@@ -620,11 +678,11 @@ public class Network
                         if(c1 != c2)
                         {
                             
-                            Path path = createSRPath(q, new CNode[]{c1, c2});
+                            Path path = createSRPath(new CNode[]{c1, c2});
                             
                             if(isValid(path))
                             {
-                                fileout.println(printPath(path));
+                                fileout.println("0\t"+printPath(path));
                                 count++;
                             }
                         }
@@ -651,7 +709,7 @@ public class Network
                         {
                             if(c1 != c2 && c2 != c3 && c1 != c3)
                             {
-                                Path path = createSRPath(q, new CNode[]{c1, c2, c3});
+                                Path path = createSRPath(new CNode[]{c1, c2, c3});
                                 
                                 if(isValid(path))
                                 {
@@ -692,6 +750,7 @@ public class Network
         {
             for(Path pi : gamma.get(q).keySet())
             {
+                
                 gamma.get(q).put(pi, cplex.numVar(0, Integer.MAX_VALUE));
             }
         }
@@ -707,9 +766,11 @@ public class Network
         {
             for(Path pi : gamma.get(q).keySet())
             {
-                lhs.addTerm(gamma.get(q).get(pi), pi.getTT());
+                lhs.addTerm(gamma.get(q).get(pi), pi.getTT() * dt);
+                //System.out.println(pi.getTT() * dt);
             }
         }
+        
         
         cplex.addLe(lhs, savs.size());
         
@@ -762,9 +823,34 @@ public class Network
         
         cplex.addMaximize(alpha);
         
-        
+        cplex.solve();
         
         double output = 0;
+        
+        System.out.println("alpha="+cplex.getValue(alpha));
+        
+        double emptyTime = 0;
+        double avgC = 0;
+        double totalV = 0;
+        
+        for(Node q : gamma.keySet())
+        {
+            for(Path pi : gamma.get(q).keySet())
+            {
+                double g = cplex.getValue(gamma.get(q).get(pi));
+                
+                avgC += g * pi.getTT() / (1.0 / dt/60);
+                emptyTime += g * getTT(pi.get(0), pi.get(1)) / (1.0/dt/60);
+                totalV += g;
+                        
+            }
+        }
+        
+        avgC = avgC / totalV;
+        emptyTime = emptyTime / totalV;
+        
+        System.out.println("predicted empty time: "+emptyTime);
+        System.out.println("avgC: "+avgC);
 
         
         for(CNode n : cnodes)
@@ -779,14 +865,13 @@ public class Network
         return output;
     }
     
-    public Path createSRPath(Node q, CNode[] customers) throws IloException
+    public Path createSRPath(CNode[] customers) throws IloException
     {
         //System.out.println("Creating path "+q+"- "+Arrays.toString(customers));
         
         if(customers.length == 1)
         {
             Path output = new Path();
-            output.add(q);
             output.add(customers[0].getOrigin());
             output.add(customers[0].getDest());
             
@@ -807,7 +892,7 @@ public class Network
         Node dummy = new Node(0, 0);
         
         Node[] nodes = new Node[1 + customers.length*2 + 1];
-        nodes[0] = q;
+        nodes[0] = dummy;
         nodes[nodes.length-1] = dummy;
         
         for(int i = 0; i < customers.length; i++)
@@ -979,7 +1064,7 @@ public class Network
         
         // (39a)
         lhs = cplex.linearNumExpr();
-        for(int i = 0; i < nodes.length; i++)
+        for(int i = 1; i < nodes.length; i++)
         {
             for(int j = 1; j < nodes.length-1; j++)
             {
@@ -1035,7 +1120,11 @@ public class Network
             {
                 if(f[curr][j] != null && cplex.getValue(f[curr][j]) == 1)
                 {
-                    output.add(nodes[curr]);
+                    if(nodes[curr].getId() != 0)
+                    {
+                        output.add(nodes[curr]);
+                    }
+                    
                     curr = j;
                     break inner;
                 }
@@ -1081,7 +1170,7 @@ public class Network
         
         
         System.out.println(q+" "+c1+" "+c2);
-        createSRPath(q, new CNode[]{c1, c2});
+        System.out.println(createSRPath(new CNode[]{c1, c2}));
     }
     
     public double stableRegionMaxServed1() throws IloException
@@ -1285,6 +1374,8 @@ public class Network
         
         cplex.solve();
         
+        System.out.println("alpha="+cplex.getValue(alpha));
+        
         double alpha_ = cplex.getValue(alpha);
         
         double emptyTime = 0;
@@ -1394,11 +1485,12 @@ public class Network
         
         IloNumVar alpha = cplex.numVar(0, 1000);
         
-        int b_db = 10;
+        int b_db = 5;
         
         IloNumVar[][][][] v = new IloNumVar[nodes.size()][nodes.size()][nodes.size()][b_db];
         double[][][][] tts = new double[nodes.size()][nodes.size()][nodes.size()][b_db];
         
+        int count = 0;
             
         for(int r_idx = 0; r_idx < nodes.size(); r_idx++)
         {
@@ -1424,11 +1516,14 @@ public class Network
                         for(int b = 0; b < b_db; b++)
                         {
                             v[q_idx][r_idx][s_idx][b] = cplex.numVar(0, Integer.MAX_VALUE);
+                            count++;
                         }
                     }
                 }
             }
         }
+        
+        System.out.println(count+" variables");
         
         // demand constraint
         for(CNode c : cnodes)
@@ -1703,7 +1798,9 @@ public class Network
         return output;
     }
     
-    private IloCplex cplex;
+    private static IloCplex cplex;
+    
+    
     public void mdpp() throws IloException
     {
         if(cplex == null)
@@ -1749,6 +1846,29 @@ public class Network
                 paths.add(new Path(c));
             }
                 
+        }
+        
+        if(RIDESHARING)
+        {
+            for(CNode c1 : nc)
+            {
+                for(CNode c2 : nc)
+                {
+                    if(c1 == c2)
+                    {
+                        continue;
+                    }
+                    
+                    if(rs_paths.containsKey(c1) && rs_paths.get(c1).containsKey(c2))
+                    {
+                        paths.add(rs_paths.get(c1).get(c2));
+                    }
+                    else if(rs_paths.containsKey(c2) && rs_paths.get(c2).containsKey(c1))
+                    {
+                        paths.add(rs_paths.get(c2).get(c1));
+                    }
+                }
+            }
         }
         
         IloIntVar[][] mat = new IloIntVar[paths.size()][nv.size()];
@@ -2105,5 +2225,51 @@ public class Network
                 }
             }
         }
+    }
+    
+    public static int createChargingStations(String name, double p) throws Exception
+    {
+        File old_nodes = new File("data/"+name+"/network/nodes_old.txt");
+        File nodes = new File("data/"+name+"/network/nodes.txt");
+        
+        if(!old_nodes.exists())
+        {
+            Scanner filein = new Scanner(nodes);
+            PrintStream fileout = new PrintStream(new FileOutputStream(old_nodes), true);
+            
+            while(filein.hasNextLine())
+            {
+                fileout.println(filein.nextLine());
+            }
+            
+            filein.close();
+            fileout.close();
+        }
+        
+        Scanner filein = new Scanner(old_nodes);
+        PrintStream fileout = new PrintStream(new FileOutputStream(nodes), true);
+        
+        fileout.println(filein.nextLine());
+        
+        int count = 0;
+        while(filein.hasNext())
+        {
+            int id = filein.nextInt();
+            int type = filein.nextInt();
+            double lng = filein.nextDouble();
+            double lat = filein.nextDouble();
+            double elev = filein.nextDouble();
+            
+            if(type == 100 && Math.random() < p)
+            {
+                count++;
+                type = 200;
+            }
+            
+            fileout.println(id+"\t"+type+"\t"+lng+"\t"+lat+"\t"+elev);
+        }
+        fileout.close();
+        
+        return count;
     }
 }
