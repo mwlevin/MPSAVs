@@ -15,14 +15,14 @@ public class SAEV extends SAV
     private double battery;
     public static double max_battery = 80; // umbers fron Donna Chen Part A paper
     
-    public static double charge_rate = 20; // 4 hr charge time
+    public static double charge_rate = 80; // 1 hr charge time
     
     public SAEV(Node loc)
     {
         super(loc);
         
         
-        battery = 1*max_battery;
+        battery = 0.5*max_battery;
     }
     
     public int getDelay(Path path)
@@ -54,6 +54,39 @@ public class SAEV extends SAV
         {
             return Network.active.getTT(getLocation(), path.getOrigin());
         }
+    }
+    
+    public int getChargingTime(Path path)
+    {
+
+        double minEndBattery = Network.active.getLength(path.getDest(), getNearestCharger(path.getDest()));
+        
+        double consumed = path.getLength() + Network.active.getLength(getLocation(), path.getOrigin());
+        
+        if(battery - consumed < minEndBattery)
+        {
+            // recharge until max
+            
+            int output = 0;
+            
+            Node closestCharger = getBestCharger(getLocation(), path.getOrigin());
+            
+            double projectedBattery = battery - Network.active.getLength(getLocation(), closestCharger);
+            
+            //output += Network.active.getTT(getLocation(), closestCharger); // travel time to charger
+            
+            output += Math.ceil( (max_battery - projectedBattery)/charge_rate / Network.dt); // time to charge
+            
+            //output += Network.active.getTT(closestCharger, path.getOrigin());
+            
+            return output;
+        }
+        else
+        {
+            return 0;
+            //return Network.active.getTT(getLocation(), path.getOrigin());
+        }
+    
     }
     
     public void dispatch(Path path)
@@ -103,12 +136,15 @@ public class SAEV extends SAV
         {
             int temp = Network.active.getTT(q, n) + Network.active.getTT(n, r);
             
+
             if(temp < min)
             {
                 min = temp;
                 best = n;
             }
         }
+        
+
         
         return best;
     }
@@ -118,6 +154,7 @@ public class SAEV extends SAV
         double min = max_battery;
         Node best = null;
         
+
         for(Node n : Network.active.getENodes())
         {
             double temp = Network.active.getLength(start, n);
@@ -129,6 +166,8 @@ public class SAEV extends SAV
             }
 
         }
+        
+
         
         return best;
     }

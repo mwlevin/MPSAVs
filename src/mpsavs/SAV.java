@@ -41,6 +41,12 @@ public class SAV
         }
     }
     
+    public int getChargingTime(Path path)
+    {
+        
+        return 0;
+    }
+    
     public boolean isParked()
     {
         return time_to_arrive == 0;

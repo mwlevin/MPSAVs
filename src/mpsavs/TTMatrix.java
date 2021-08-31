@@ -20,6 +20,8 @@ public class TTMatrix
     public TTMatrix(Network network)
     {
         List<Node> nodes = network.getNodes();
+     
+
         
         mat = new int[nodes.size()][nodes.size()];
         length = new double[nodes.size()][nodes.size()];

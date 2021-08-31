@@ -16,7 +16,7 @@ import java.util.Random;
  */
 public class MetaSimulation 
 {
-    public static double DETECT_EPSILON = 0.1;
+    public static double DETECT_EPSILON = 0.5;
     
     
     private int fleetsize;
@@ -32,7 +32,7 @@ public class MetaSimulation
         
     }
     
-    public double lineSearch() throws IOException
+    public double lineSearch(double guess) throws IOException
     {
         Network network = new Network(name, 1, fleetsize);
         double real_total = network.getTotalDemand();
@@ -40,8 +40,25 @@ public class MetaSimulation
         
         //System.out.println(total_demand);
         
+        double top = guess*1.2;
+        double bot = guess*0.6; 
+        /*
         double bot = fleetsize/2;
-        double top = fleetsize*12;
+        double top;
+        
+        if(Network.BUSES)
+        {
+            top = fleetsize*25;
+        }
+        else if(Network.EVs)
+        {
+            top = fleetsize*6;
+        }
+        else
+        {
+            top = fleetsize*12;
+        }
+        */
         
         double mid = 0;
         double diff = 0.2;
@@ -52,9 +69,11 @@ public class MetaSimulation
         {
             mid = (bot+top)/2;
             
-            System.out.println(bot+" "+top+" "+mid+" scale="+(mid / real_total));
             
-            if(isStableMC(mid / real_total))
+            
+            boolean output = isStableMC(mid / real_total);
+            
+            if(output)
             {
                 bot = mid;
             }
@@ -63,7 +82,9 @@ public class MetaSimulation
                 top = mid;
             }
             
-            
+            System.out.println("\n*****");
+            System.out.println(bot+" "+top+" "+mid+" scale="+(mid / real_total)+" "+output);
+            System.out.println("*****\n");
         }
         
         //mid = (bot+top)/2;
@@ -88,7 +109,7 @@ public class MetaSimulation
         
         //System.out.println(count);
         
-        return count>6;
+        return count>7;
     }
     
     
