@@ -129,6 +129,8 @@ public class SAEV extends SAV
     
     public static Node getBestCharger(Node q, Node r)
     {
+
+        
         int min = Integer.MAX_VALUE;
         Node best = null;
         
@@ -151,6 +153,8 @@ public class SAEV extends SAV
     
     public static Node getNearestCharger(Node start)
     {
+
+        
         double min = max_battery;
         Node best = null;
         
