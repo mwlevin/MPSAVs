@@ -56,8 +56,8 @@ public class Main {
         
         */
         
-        //stableRegionTest("SiouxFalls", 100, 500, 25);
-        //System.exit(0);
+        stableRegionTest("SiouxFalls", 100, 500, 25);
+        System.exit(0);
         
         // TODO code application logic here
         
@@ -75,8 +75,8 @@ public class Main {
         
         
         
-        
-        Network network = new Network("SiouxFalls", 400.0/28835, 200);
+        /*
+        Network network = new Network("SiouxFalls", 600.0/28835, 200);
 
         //network.loadRSPaths(new HashMap<>() );
         //Network network = new Network("coacongress", 480.0/62836, 100);
@@ -103,7 +103,7 @@ public class Main {
        
         
         System.out.println(network.stableRegionMaxServed());
-        
+        */
         
         
         

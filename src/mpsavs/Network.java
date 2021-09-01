@@ -40,9 +40,9 @@ public class Network
     
     public static Network active = null;
     
-    public static boolean EVs = true;
-    public static boolean RIDESHARING = false;
-    public static boolean BUSES = false;
+    public static boolean EVs = false;
+    public static boolean RIDESHARING = true;
+    public static boolean BUSES = true;
     
     public double V = 1;
     
@@ -63,7 +63,7 @@ public class Network
     public static int t;
     
     public static double dt = 30.0/3600;
-    public static int T_hr =36;
+    public static int T_hr =12;
     public static int T = (int)Math.round(1.0/dt * T_hr);
     
     private int[] holtimes;
@@ -106,6 +106,7 @@ public class Network
             filein.nextLine();
             
             if(EVs && type == 200)
+            //if(type != 1000)
             {
                 enodes.add(temp);
             }
@@ -450,7 +451,7 @@ public class Network
         total_customers = 0;
         
         PrintStream output = new PrintStream(new FileOutputStream(new File("waiting.txt")), true);
-        output.println("time\tnum waiting\tHOL time");
+        output.println("time\tnum waiting\tHOL time\tfree SAVs");
         
         for(t = 0; t < T; t++)
         {
@@ -462,7 +463,7 @@ public class Network
             int holtime = getHOLTime();
             holtimes[t] = holtime;
             
-            output.println(t+"\t"+getNumWaiting()+"\t"+holtime);
+            output.println(t+"\t"+getNumWaiting()+"\t"+holtime+"\t"+getAvailable().size());
             
             for(CNode n : cnodes)
             {
@@ -1502,7 +1503,7 @@ public class Network
         
         IloNumVar alpha = cplex.numVar(0, 1000);
         
-        int b_db = 5;
+        int b_db = 8;
         
         IloNumVar[][][][] v = new IloNumVar[nodes.size()][nodes.size()][nodes.size()][b_db];
         double[][][][] tts = new double[nodes.size()][nodes.size()][nodes.size()][b_db];
