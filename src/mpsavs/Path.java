@@ -34,6 +34,11 @@ public class Path extends ArrayList<Node>
         this.served = served;
     }
     
+    public int getNumServed()
+    {
+        return served.size();
+    }
+    
     public int getTT(Node r, Node s)
     {
         int r_idx = indexOf(r);

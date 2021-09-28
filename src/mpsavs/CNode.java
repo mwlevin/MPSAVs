@@ -89,7 +89,7 @@ public class CNode
         
         pickupDelay.add(waitingForPickup / (1.0/Network.dt / 60));
         
-        int waitingForDispatch = waiting.remove(0);
+        int waitingForDispatch = (Network.t - waiting.remove(0));
         
         dispatchDelay.add(waitingForDispatch / (1.0/Network.dt / 60) );
     }

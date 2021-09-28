@@ -41,12 +41,12 @@ public class Network
     public static Network active = null;
     
     public static boolean EVs = false;
-    public static boolean RIDESHARING = true;
-    public static boolean BUSES = true;
+    public static boolean RIDESHARING = false;
+    public static boolean BUSES = false;
     
     public double V = 1;
     
-    private RunningAvg avgC, ivtt, emptyTT, chargingTime;
+    private RunningAvg avgC, ivtt, emptyTT, chargingTime, servedPerSAV;
     private List<Node> nodes;
     private Set<Link> links;
     private Set<CNode> cnodes;
@@ -63,10 +63,10 @@ public class Network
     public static int t;
     
     public static double dt = 30.0/3600;
-    public static int T_hr =12;
+    public static int T_hr =24;
     public static int T = (int)Math.round(1.0/dt * T_hr);
     
-    private int[] holtimes;
+    private double[] holtimes;
     
     public static Random rand = new Random(14);
     
@@ -441,12 +441,13 @@ public class Network
     
     public void simulate() throws IOException
     {
-        holtimes = new int[T];
+        holtimes = new double[T];
         
         avgC = new RunningAvg();
         ivtt = new RunningAvg();
         emptyTT = new RunningAvg();
         chargingTime = new RunningAvg();
+        servedPerSAV = new RunningAvg();
         
         total_customers = 0;
         
@@ -495,7 +496,7 @@ public class Network
         output.close();
     }
     
-    public int[] getHOLTimes()
+    public double[] getHOLTimes()
     {
         return holtimes;
     }
@@ -834,6 +835,7 @@ public class Network
         double avgC = 0;
         double totalV = 0;
         double ivtt = 0;
+        double served = 0;
         
         for(Node q : gamma.keySet())
         {
@@ -845,13 +847,14 @@ public class Network
                 emptyTime += g * getTT(pi.get(0), pi.get(1)) / (1.0/dt/60);
                 totalV += g;
                 ivtt += pi.getTT() - pi.getTT(pi.get(0), pi.get(1));
-                        
+                served += pi.getNumServed() * g;
             }
         }
         
         ivtt = ivtt/totalV;
         avgC = avgC / totalV;
         emptyTime = emptyTime / totalV;
+        served /= totalV;
         
         this.ivtt = new RunningAvg();
         this.ivtt.add(ivtt);
@@ -862,8 +865,12 @@ public class Network
         this.chargingTime = new RunningAvg();
         this.chargingTime.add(0);
         
+        this.servedPerSAV = new RunningAvg();
+        this.servedPerSAV.add(served);
+        
         System.out.println("predicted empty time: "+emptyTime);
         System.out.println("avgC: "+avgC);
+        System.out.println("avg served: "+served);
 
         
         for(CNode n : cnodes)
@@ -876,6 +883,19 @@ public class Network
         
         
         return output;
+    }
+    
+    
+    public double getAvgServed()
+    {
+        if(servedPerSAV != null)
+        {
+            return servedPerSAV.getAverage();
+        }
+        else
+        {
+            return 1;
+        }
     }
     
     public Path createSRPath(CNode[] customers) throws IloException
@@ -2146,6 +2166,7 @@ public class Network
         emptyTT.add(sav.getDelay(path) / (1.0/dt / 60));
         chargingTime.add(sav.getChargingTime(path) / (1.0/dt / 60));
         ivtt.add(path.getTT() / (1.0/dt / 60) );
+        servedPerSAV.add(path.getNumServed());
         
         sav.dispatch(path);
         

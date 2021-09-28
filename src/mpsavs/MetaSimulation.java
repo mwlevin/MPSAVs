@@ -16,7 +16,7 @@ import java.util.Random;
  */
 public class MetaSimulation 
 {
-    public static double DETECT_EPSILON = 0.1;
+    public static double DETECT_EPSILON = 1;
     
     
     private int fleetsize;
@@ -41,7 +41,7 @@ public class MetaSimulation
         //System.out.println(total_demand);
         
         double top = guess*1.2;
-        double bot = guess*0.6; 
+        double bot = guess*0.4; 
         /*
         double bot = fleetsize/2;
         double top;
@@ -73,6 +73,10 @@ public class MetaSimulation
             
             boolean output = isStableMC(mid / real_total);
             
+            System.out.println("\n*****");
+            System.out.println("Line search checking "+bot+" "+top+" "+mid+" scale="+(mid / real_total)+" "+output);
+            System.out.println("*****\n");
+            
             if(output)
             {
                 bot = mid;
@@ -82,9 +86,7 @@ public class MetaSimulation
                 top = mid;
             }
             
-            System.out.println("\n*****");
-            System.out.println(bot+" "+top+" "+mid+" scale="+(mid / real_total)+" "+output);
-            System.out.println("*****\n");
+            
         }
         
         //mid = (bot+top)/2;
@@ -109,7 +111,7 @@ public class MetaSimulation
         
         //System.out.println(count);
         
-        return count>7;
+        return count>5;
     }
     
     
@@ -124,15 +126,22 @@ public class MetaSimulation
         
         network.simulate();
         
-        int[] hol = network.getHOLTimes();
+        double[] hol = network.getHOLTimes();
         
         
-        double[] stableCheck = getStableDefi(hol);
+        //double[] stableCheck = getStableDefi(hol);
         
         //System.out.println(stableCheck[stableCheck.length-1]);
-        double[] filtered = getLowPassFilter(stableCheck);
+        double[] filtered = getLowPassFilter(hol);
         
-        double[] diff = new double[8];
+        /*
+        for(int i = 0; i < filtered.length; i++)
+        {
+            System.out.println(i+"\t"+filtered[i]);
+        }
+        */
+        
+        double[] diff = new double[4];
         
         int count = 0;
         
@@ -172,7 +181,7 @@ public class MetaSimulation
         
         return output;
     }
-    public double[] getStableDefi(int[] hol)
+    public double[] getStableDefi(double[] hol)
     {
         double[] output = new double[hol.length];
         
